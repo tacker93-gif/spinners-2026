@@ -368,6 +368,7 @@ function hStrokes(dHcp, hole) {
 function sPts(gross, par, strokes) { if (!gross || gross < 0) return 0; return Math.max(0, 2 - (gross - strokes - par)); }
 function isPickup(val) { return val === -1; }
 function holeFilled(val) { return val > 0 || val === -1; }
+function grossForHole(val, par) { if (val === -1) return par + 5; return val > 0 ? val : 0; }
 
 function holeName(n) {
   const suffix = n===1?"st":n===2?"nd":n===3?"rd":(n>=11&&n<=13)?"th":"th";
@@ -406,6 +407,7 @@ function matchStatus(state, match, round) {
   const mn = Math.min(...bH,...gH);
   const abH = bH.map(h=>h-mn), agH = gH.map(h=>h-mn);
   let bUp=0, played=0;
+  let clinched=null;
   for(let i=0;i<18;i++){
     const h=course.holes[i];
     // For each player: pickup(-1) = 99 net (worst possible), >0 = gross - strokes, else not scored
@@ -419,12 +421,14 @@ function matchStatus(state, match, round) {
       const bestB = Math.min(...bN.filter(v=>v!==null));
       const bestG = Math.min(...gN.filter(v=>v!==null));
       if(bestB<bestG)bUp++; else if(bestG<bestB)bUp--;
+      const rem=18-played;
+      if(Math.abs(bUp)>rem){clinched={bUp,played,rem};break;}
     }
   }
   if(played===0) return {status:"ns",bUp:0,played:0};
+  if(clinched) return {status:"done",winner:clinched.bUp>0?"blue":"grey",bUp:clinched.bUp,played:clinched.played,display:`${Math.abs(clinched.bUp)}&${clinched.rem}`};
   const rem=18-played;
   if(played<18){
-    if(Math.abs(bUp)>rem) return {status:"done",winner:bUp>0?"blue":"grey",bUp,played,display:`${Math.abs(bUp)}&${rem}`};
     return {status:"live",bUp,played,remaining:rem};
   }
   if(bUp===0) return {status:"done",winner:"halved",bUp:0,played:18,display:"Halved"};
@@ -622,8 +626,8 @@ function CupScreen({state,onMatch,live}){
             let bg="#fff",bdr="#e2e8f0";
             if(live&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
-              if(ahead==="blue"||res.winner==="blue"){bg="#FEF2F2";bdr="#FECACA";}
-              else if(ahead==="grey"||res.winner==="grey"){bg="#FFFBEB";bdr="#FDE68A";}
+              if(ahead==="blue"||res.winner==="blue"){bg="#FFFBEB";bdr="#FDE68A";}
+              else if(ahead==="grey"||res.winner==="grey"){bg="#FEF2F2";bdr="#FECACA";}
               else{bg="#f0fdf4";bdr="#86efac";}
             }
             let midTxt="vs",midCol="#94a3b8";
@@ -637,12 +641,12 @@ function CupScreen({state,onMatch,live}){
             return(
               <button key={match.id} onClick={()=>{if(live)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:live?"pointer":"default",opacity:live?1:0.75}}>
                 <div style={{display:"flex",alignItems:"center"}}>
-                  <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:live?"#B91C1C":"#94a3b8"}}>{bN}</div></div>
+                  <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:live?"#B8860B":"#94a3b8"}}>{bN}</div></div>
                   <div style={{padding:"0 8px",minWidth:70,textAlign:"center"}}>
                     <div style={{fontSize:11,fontWeight:700,color:midCol,fontFamily:"'JetBrains Mono',monospace"}}>{midTxt}</div>
                     {live&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
                   </div>
-                  <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:12,fontWeight:600,color:live?"#B8860B":"#94a3b8"}}>{gN}</div></div>
+                  <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:12,fontWeight:600,color:live?"#B91C1C":"#94a3b8"}}>{gN}</div></div>
                 </div>
               </button>
             );
@@ -673,10 +677,10 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
       <h2 style={S.sectTitle}>Match {round.matches.indexOf(match)+1} — Round {round.num}</h2>
       <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>{round.courseName} · {round.day}</p>
 
-      <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,padding:"10px 14px",background:res.winner==="blue"?"#FEF2F2":res.winner==="grey"?"#FFFBEB":"#f0fdf4",borderRadius:10,border:"1px solid #e2e8f0"}}>
-        <span style={{fontSize:13,fontWeight:700,color:"#B91C1C"}}>{match.blue.map(id=>getP(id)?.short).join(" & ")}</span>
+      <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,padding:"10px 14px",background:res.winner==="blue"?"#FFFBEB":res.winner==="grey"?"#FEF2F2":"#f0fdf4",borderRadius:10,border:"1px solid #e2e8f0"}}>
+        <span style={{fontSize:13,fontWeight:700,color:"#B8860B"}}>{match.blue.map(id=>getP(id)?.short).join(" & ")}</span>
         <span style={{fontSize:13,fontWeight:700,color:res.winner==="blue"?"#B8860B":res.winner==="grey"?"#B91C1C":"#16a34a"}}>{res.status==="ns"?"vs":res.status==="live"?(res.bUp===0?"All Square":res.bUp>0?`Yellow ${res.bUp} Up`:`Red ${Math.abs(res.bUp)} Up`):res.display}</span>
-        <span style={{fontSize:13,fontWeight:700,color:"#B8860B"}}>{match.grey.map(id=>getP(id)?.short).join(" & ")}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"#B91C1C"}}>{match.grey.map(id=>getP(id)?.short).join(" & ")}</span>
       </div>
 
       <div style={{overflowX:"auto"}}>
@@ -685,8 +689,8 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
             <tr style={{background:"#f8faf8"}}>
               <th style={S.th}>Hole</th><th style={S.th}>Par</th>
               {allIds.map(id=><th key={id} style={{...S.th,color:getP(id)?.team==="blue"?"#B8860B":"#B91C1C",fontSize:9}}>{getP(id)?.short}</th>)}
-              <th style={{...S.th,color:"#B91C1C",fontSize:9}}>Blue</th>
-              <th style={{...S.th,color:"#B8860B",fontSize:9}}>Grey</th>
+              <th style={{...S.th,color:"#B8860B",fontSize:9}}>Yellow</th>
+              <th style={{...S.th,color:"#B91C1C",fontSize:9}}>Red</th>
               <th style={{...S.th,fontSize:9}}>Result</th>
             </tr>
           </thead>
@@ -708,8 +712,8 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
               const bestB=Math.max(...bPts),bestG=Math.max(...gPts);
               let hRes="",resCol="#94a3b8";
               if(bothScored){
-                if(bestB>bestG){runUp++;hRes="🔴";resCol="#B91C1C";}
-                else if(bestG>bestB){runUp--;hRes="🟡";resCol="#B8860B";}
+                if(bestB>bestG){runUp++;hRes="🟡";resCol="#B8860B";}
+                else if(bestG>bestB){runUp--;hRes="🔴";resCol="#B91C1C";}
                 else hRes="—";
               }
               return(
@@ -724,9 +728,9 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
                       )}
                     </td>
                   ))}
-                  <td style={{...S.td,fontWeight:700,color:"#B91C1C",background:bestB>bestG&&bothScored?"#FEF2F2":"transparent"}}>{bothScored?bestB:blueHas?bestB:"—"}</td>
-                  <td style={{...S.td,fontWeight:700,color:"#B8860B",background:bestG>bestB&&bothScored?"#FFFBEB":"transparent"}}>{bothScored?bestG:greyHas?bestG:"—"}</td>
-                  <td style={{...S.td,textAlign:"center"}}>{bothScored&&<div>{hRes}<div style={{fontSize:7,color:runUp>0?"#B91C1C":runUp<0?"#B8860B":"#16a34a",fontWeight:700}}>{runUp===0?"AS":runUp>0?`R+${runUp}`:`Y+${Math.abs(runUp)}`}</div></div>}</td>
+                  <td style={{...S.td,fontWeight:700,color:"#B8860B",background:bestB>bestG&&bothScored?"#FFFBEB":"transparent"}}>{bothScored?bestB:blueHas?bestB:"—"}</td>
+                  <td style={{...S.td,fontWeight:700,color:"#B91C1C",background:bestG>bestB&&bothScored?"#FEF2F2":"transparent"}}>{bothScored?bestG:greyHas?bestG:"—"}</td>
+                  <td style={{...S.td,textAlign:"center"}}>{bothScored&&<div>{hRes}<div style={{fontSize:7,color:runUp>0?"#B8860B":runUp<0?"#B91C1C":"#16a34a",fontWeight:700}}>{runUp===0?"AS":runUp>0?`Y+${runUp}`:`R+${Math.abs(runUp)}`}</div></div>}</td>
                 </tr>
               );
             })}
@@ -759,10 +763,10 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
                   <td style={{...S.td,fontWeight:700,fontSize:10,color:"#1a2e1a"}}>Tot</td>
                   <td style={{...S.td,fontWeight:700,color:"#94a3b8"}}>{course.par}</td>
                   {playerTotals.map((p, pi) => (
-                    <td key={pi} style={{...S.td,fontWeight:700,color:p.isB?"#B91C1C":"#B8860B",fontSize:12}}>{p.totalPts > 0 ? p.totalPts : "—"}</td>
+                    <td key={pi} style={{...S.td,fontWeight:700,color:p.isB?"#B8860B":"#B91C1C",fontSize:12}}>{p.totalPts > 0 ? p.totalPts : "—"}</td>
                   ))}
-                  <td style={{...S.td,fontWeight:800,color:"#B91C1C",fontSize:12,background:"#FEF2F2"}}>{anyScored ? blueTotalBB : "—"}</td>
-                  <td style={{...S.td,fontWeight:800,color:"#B8860B",fontSize:12,background:"#FFFBEB"}}>{anyScored ? greyTotalBB : "—"}</td>
+                  <td style={{...S.td,fontWeight:800,color:"#B8860B",fontSize:12,background:"#FFFBEB"}}>{anyScored ? blueTotalBB : "—"}</td>
+                  <td style={{...S.td,fontWeight:800,color:"#B91C1C",fontSize:12,background:"#FEF2F2"}}>{anyScored ? greyTotalBB : "—"}</td>
                   <td style={S.td}></td>
                 </tr>
               );
@@ -842,7 +846,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
   course.holes.forEach((h,i)=>{
     const v=scores[i]||0;
     tPts+=sPts(v,h.par,hStrokes(dH,h));
-    if(v>0) tGross+=v;
+    tGross+=grossForHole(v,h.par);
   });
   const filled = scores.filter(s=>holeFilled(s)).length;
 
@@ -851,7 +855,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
     course.holes.forEach((h,i)=>{
       const v=partnerScores[i]||0;
       pTotalPts+=sPts(v,h.par,hStrokes(partnerDH,h));
-      if(v>0)pTotalGross+=v;
+      pTotalGross+=grossForHole(v,h.par);
       if(holeFilled(v))pFilled++;
     });
   }
@@ -958,7 +962,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                 <div style={{padding:"8px 12px",background:"#f1f5f9",borderRadius:8,marginBottom:6,display:"flex",justifyContent:"space-between"}}>
                   <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Front 9</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>
-                    {course.holes.slice(0,9).reduce((a,_,j)=>a+sPts(scores[j]||0,course.holes[j].par,hStrokes(dH,course.holes[j])),0)}pts · Gross: {course.holes.slice(0,9).reduce((a,_,j)=>a+((scores[j]||0)>0?(scores[j]):0),0)}
+                    {course.holes.slice(0,9).reduce((a,_,j)=>a+sPts(scores[j]||0,course.holes[j].par,hStrokes(dH,course.holes[j])),0)}pts · Gross: {course.holes.slice(0,9).reduce((a,_,j)=>a+grossForHole(scores[j]||0,course.holes[j].par),0)}
                   </span>
                 </div>
               )}
@@ -1059,7 +1063,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
         <div style={{padding:"8px 12px",background:"#f1f5f9",borderRadius:8,display:"flex",justifyContent:"space-between"}}>
           <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Back 9</span>
           <span style={{fontSize:11,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>
-            {course.holes.slice(9).reduce((a,_,j)=>a+sPts(scores[j+9]||0,course.holes[j+9].par,hStrokes(dH,course.holes[j+9])),0)}pts · Gross: {course.holes.slice(9).reduce((a,_,j)=>a+((scores[j+9]||0)>0?scores[j+9]:0),0)}
+            {course.holes.slice(9).reduce((a,_,j)=>a+sPts(scores[j+9]||0,course.holes[j+9].par,hStrokes(dH,course.holes[j+9])),0)}pts · Gross: {course.holes.slice(9).reduce((a,_,j)=>a+grossForHole(scores[j+9]||0,course.holes[j+9].par),0)}
           </span>
         </div>
 
@@ -1160,7 +1164,7 @@ function LeaderView({state,catId,onBack}){
       ROUNDS.forEach(r=>{
         const c=getCourse(r.courseId);const sc=state.scores?.[r.id]?.[p.id]||[];
         t+=pStab(sc,c,courseHcp(state.handicaps?.[p.id],c,getTeeKey(state,c.id)));
-        holes+=sc.filter(s=>s>0).length;
+        holes+=sc.filter(s=>holeFilled(s)).length;
       });
       return{...p,score:t,holes,totalHoles:54};
     }).sort((a,b)=>b.score-a.score);
@@ -1168,7 +1172,7 @@ function LeaderView({state,catId,onBack}){
     const ri=parseInt(catId[1])-1;const round=ROUNDS[ri];const course=getCourse(round.courseId);
     rankings=PLAYERS.map(p=>{
       const sc=state.scores?.[round.id]?.[p.id]||[];
-      const holes=sc.filter(s=>s>0).length;
+      const holes=sc.filter(s=>holeFilled(s)).length;
       return{...p,score:pStab(sc,course,courseHcp(state.handicaps?.[p.id],course,getTeeKey(state,course.id))),holes,totalHoles:18};
     }).sort((a,b)=>b.score-a.score);
   } else if(catId.startsWith("2b")){
@@ -1181,7 +1185,7 @@ function LeaderView({state,catId,onBack}){
       course.holes.forEach((h,i)=>{
         const pA=sPts(sA[i]||0,h.par,hStrokes(hA,h));const pB=sPts(sB[i]||0,h.par,hStrokes(hB,h));
         pts+=Math.max(pA,pB);
-        if((sA[i]||0)>0||(sB[i]||0)>0) holes++;
+        if(holeFilled(sA[i]||0)||holeFilled(sB[i]||0)) holes++;
       });
       pairs.push({id:`${a}_${b}`,name:`${getP(a)?.short} & ${getP(b)?.short}`,team:getP(a)?.team,score:pts,holes,totalHoles:18});
     });});
@@ -1256,9 +1260,9 @@ function MatchSchedule({onBack}){
                 <span style={{fontSize:10,color:"#94a3b8"}}>Match {mi+1}</span>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:12,fontWeight:600,color:"#B91C1C",flex:1}}>{match.blue.map(id=>getP(id)?.name).join(" & ")}</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#B8860B",flex:1}}>{match.blue.map(id=>getP(id)?.name).join(" & ")}</span>
                 <span style={{fontSize:10,color:"#94a3b8"}}>vs</span>
-                <span style={{fontSize:12,fontWeight:600,color:"#B8860B",flex:1,textAlign:"right"}}>{match.grey.map(id=>getP(id)?.name).join(" & ")}</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#B91C1C",flex:1,textAlign:"right"}}>{match.grey.map(id=>getP(id)?.name).join(" & ")}</span>
               </div>
             </div>
           ))}
