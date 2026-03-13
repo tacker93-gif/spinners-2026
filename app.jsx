@@ -392,6 +392,36 @@ function getPartner(playerId, roundId) {
   return null;
 }
 
+function getChulliganRecord(state, roundId, playerId) {
+  return state.chulligans?.[roundId]?.[playerId] || {};
+}
+
+function getChulliganHole(state, roundId, playerId, nine) {
+  return getChulliganRecord(state, roundId, playerId)?.[nine] ?? null;
+}
+
+function getChulliganCount(state, roundId, playerId) {
+  const rec = getChulliganRecord(state, roundId, playerId);
+  return [rec.front, rec.back].filter(v => v != null).length;
+}
+
+function chulliganBadges(count) {
+  return count > 0 ? "🍺".repeat(count) : "";
+}
+
+function findMatchByPlayer(roundId, playerId) {
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return null;
+  return round.matches.find(m => [...m.blue, ...m.grey].includes(playerId)) || null;
+}
+
+function findMatchByTeam(roundId, teamIds) {
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return null;
+  const key = [...teamIds].sort().join("_");
+  return round.matches.find(m => [m.blue, m.grey].some(t => [...t].sort().join("_") === key)) || null;
+}
+
 function isSubmitted(state, roundId, playerId) {
   return !!state.submitted?.[roundId]?.[playerId];
 }
@@ -435,7 +465,7 @@ function matchStatus(state, match, round) {
   return {status:"done",winner:bUp>0?"blue":"grey",bUp,played:18,display:`${Math.abs(bUp)} Up`};
 }
 
-const DEFAULT_STATE = { handicaps:{}, scores:{}, ntpWinners:{}, ldWinners:{}, submitted:{}, eventLive:false, tees:{standrews:"white",pk_south:"white",pk_north:"white"} };
+const DEFAULT_STATE = { handicaps:{}, scores:{}, ntpWinners:{}, ldWinners:{}, chulligans:{}, submitted:{}, eventLive:false, tees:{standrews:"white",pk_south:"white",pk_north:"white"} };
 
 // ─── Main App ────────────────────────────────────────────────
 function getTeeKey(state, courseId) { return state.tees?.[courseId] || "white"; }
@@ -473,7 +503,7 @@ function App() {
         {tab==="scores"&&!sub&&(live?<ScoresList state={state} cur={cur} isAdmin={isAdmin} onSelect={(r,p)=>setSub({t:"sc",r,p})}/>:<LockedPage title="Scoring" msg="Scoring will open when the event goes live." icon="⛳"/>)}
         {tab==="scores"&&sub?.t==="sc"&&<ScoreEntry state={state} upd={upd} roundId={sub.r} playerId={sub.p||cur} isAdmin={isAdmin} cur={cur} onBack={()=>setSub(null)}/>}
         {tab==="leaders"&&!sub&&<LeaderList onSelect={id=>setSub({t:"lb",id})}/>}
-        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} onBack={()=>setSub(null)}/>}
+        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} onBack={()=>setSub(null)} onOpenMatch={(roundId,matchId)=>{setTab("cup");setSub({t:"m",id:matchId,roundId});}}/>}
         {tab==="schedule"&&!sub&&<ScheduleMenu onSelect={id=>setSub({t:"sched",id})}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="matches"&&(live?<MatchSchedule onBack={()=>setSub(null)}/>:<LockedMessage title="Match Schedule" msg="The match schedule and team draw will be revealed on game day. Stay tuned! 🏌️" onBack={()=>setSub(null)}/>)}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="trip"&&<TripSchedule onBack={()=>setSub(null)}/>}
@@ -621,8 +651,8 @@ function CupScreen({state,onMatch,live}){
           </div>
           {round.matches.map((match,mi)=>{
             const res=matchStatus(state,match,round);
-            const bN=live?match.blue.map(id=>getP(id)?.short).join(" & "):"??? & ???";
-            const gN=live?match.grey.map(id=>getP(id)?.short).join(" & "):"??? & ???";
+            const bN=live?match.blue.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & "):"??? & ???";
+            const gN=live?match.grey.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & "):"??? & ???";
             let bg="#fff",bdr="#e2e8f0";
             if(live&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
@@ -678,9 +708,9 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
       <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>{round.courseName} · {round.day}</p>
 
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,padding:"10px 14px",background:res.winner==="blue"?"#FFFBEB":res.winner==="grey"?"#FEF2F2":"#f0fdf4",borderRadius:10,border:"1px solid #e2e8f0"}}>
-        <span style={{fontSize:13,fontWeight:700,color:"#B8860B"}}>{match.blue.map(id=>getP(id)?.short).join(" & ")}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"#B8860B"}}>{match.blue.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & ")}</span>
         <span style={{fontSize:13,fontWeight:700,color:res.winner==="blue"?"#B8860B":res.winner==="grey"?"#B91C1C":"#16a34a"}}>{res.status==="ns"?"vs":res.status==="live"?(res.bUp===0?"All Square":res.bUp>0?`Yellow ${res.bUp} Up`:`Red ${Math.abs(res.bUp)} Up`):res.display}</span>
-        <span style={{fontSize:13,fontWeight:700,color:"#B91C1C"}}>{match.grey.map(id=>getP(id)?.short).join(" & ")}</span>
+        <span style={{fontSize:13,fontWeight:700,color:"#B91C1C"}}>{match.grey.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & ")}</span>
       </div>
 
       <div style={{overflowX:"auto"}}>
@@ -688,7 +718,7 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
           <thead>
             <tr style={{background:"#f8faf8"}}>
               <th style={S.th}>Hole</th><th style={S.th}>Par</th>
-              {allIds.map(id=><th key={id} style={{...S.th,color:getP(id)?.team==="blue"?"#B8860B":"#B91C1C",fontSize:9}}>{getP(id)?.short}</th>)}
+              {allIds.map(id=><th key={id} style={{...S.th,color:getP(id)?.team==="blue"?"#B8860B":"#B91C1C",fontSize:9}}>{getP(id)?.short} {chulliganBadges(getChulliganCount(state,round.id,id))}</th>)}
               <th style={{...S.th,color:"#B8860B",fontSize:9}}>Yellow</th>
               <th style={{...S.th,color:"#B91C1C",fontSize:9}}>Red</th>
               <th style={{...S.th,fontSize:9}}>Result</th>
@@ -841,6 +871,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
 
   const ntpH=getNtpHole(round.courseId),ldH=getLdHole(round.courseId);
   const ntpKey=`${roundId}_ntp`,ldKey=`${roundId}_ld`;
+  const myChulligans=getChulliganRecord(state,roundId,playerId);
 
   let tPts=0,tGross=0;
   course.holes.forEach((h,i)=>{
@@ -883,6 +914,24 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
     });
   };
 
+  const toggleChulligan = (pid, holeIdx) => {
+    const nine = holeIdx < 9 ? "front" : "back";
+    upd(s => {
+      if (!s.chulligans) s.chulligans = {};
+      if (!s.chulligans[roundId]) s.chulligans[roundId] = {};
+      if (!s.chulligans[roundId][pid]) s.chulligans[roundId][pid] = {};
+      const current = s.chulligans[roundId][pid][nine];
+      if (current === holeIdx) s.chulligans[roundId][pid][nine] = null;
+      else if (current == null) s.chulligans[roundId][pid][nine] = holeIdx;
+    });
+  };
+
+  const chulliganButtonState = (pid, holeIdx) => {
+    const nine = holeIdx < 9 ? "front" : "back";
+    const current = getChulliganHole(state, roundId, pid, nine);
+    return { active: current === holeIdx, locked: current != null && current !== holeIdx };
+  };
+
   return(
     <div>
       <button onClick={onBack} style={S.backBtn}>← Back</button>
@@ -907,7 +956,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
       {/* Header */}
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
         <div>
-          <h2 style={{...S.sectTitle,marginBottom:2}}>{player?.name}</h2>
+          <h2 style={{...S.sectTitle,marginBottom:2}}>{player?.name} {chulliganBadges(getChulliganCount(state,roundId,playerId))}</h2>
           <p style={{fontSize:12,color:"#94a3b8",margin:0}}>{round.courseName} · {round.day}</p>
           {mySubmitted && <div style={{fontSize:11,color:"#16a34a",fontWeight:600,marginTop:4}}>✓ Score Submitted</div>}
         </div>
@@ -921,7 +970,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
       {/* Partner summary bar */}
       {partner && (
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",marginBottom:8}}>
-          <span style={{fontSize:12,fontWeight:600,color:"#B8860B"}}>👥 {partner.short}</span>
+          <span style={{fontSize:12,fontWeight:600,color:"#B8860B"}}>👥 {partner.short} {chulliganBadges(getChulliganCount(state,roundId,partnerId))}</span>
           <span style={{marginLeft:"auto",fontSize:11,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>
             {pTotalPts}pts · Gross: {pTotalGross} · {pFilled}/18
           </span>
@@ -960,7 +1009,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
             <div key={h.n}>
               {i===9&&(
                 <div style={{padding:"8px 12px",background:"#f1f5f9",borderRadius:8,marginBottom:6,display:"flex",justifyContent:"space-between"}}>
-                  <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Front 9</span>
+                  <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Front 9 {myChulligans.front != null ? "🍺" : ""}</span>
                   <span style={{fontSize:11,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>
                     {course.holes.slice(0,9).reduce((a,_,j)=>a+sPts(scores[j]||0,course.holes[j].par,hStrokes(dH,course.holes[j])),0)}pts · Gross: {course.holes.slice(0,9).reduce((a,_,j)=>a+grossForHole(scores[j]||0,course.holes[j].par),0)}
                   </span>
@@ -1014,6 +1063,12 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       {isNtp?(isNtpW?"✓ NTP":"Claim NTP"):(isLdW?"✓ LD":"Claim LD")}
                     </button>
                   )}
+                  {canEdit&&(()=>{const cState=chulliganButtonState(playerId,i);return (
+                    <button onClick={()=>toggleChulligan(playerId,i)} disabled={cState.locked}
+                      style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:12,fontWeight:700,color:cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:cState.locked?"not-allowed":"pointer",opacity:cState.locked?0.6:1}}>
+                      {cState.active?"✓🍺":"🍺"}
+                    </button>
+                  );})()}
                 </div>
 
                 {/* Partner row — always visible */}
@@ -1051,7 +1106,13 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       :pVal>0?(<div><div style={{fontSize:14,fontWeight:600,color:sColor(pPts),fontFamily:"'JetBrains Mono',monospace"}}>{pPts}pts</div><div style={{fontSize:8,color:sColor(pPts)}}>{sLabel(pPts)}</div></div>)
                       :<div style={{color:"#d1d5db",fontSize:11}}>—</div>}
                     </div>
-                    <div style={{minWidth:36}}/>
+                    {isMine && !isSubmitted(state, roundId, partnerId) ? (()=>{const cState=chulliganButtonState(partnerId,i);return (
+                      <button onClick={()=>toggleChulligan(partnerId,i)} disabled={cState.locked}
+                        style={{minWidth:36,padding:"4px 6px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:11,color:cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:cState.locked?"not-allowed":"pointer",opacity:cState.locked?0.6:1}}>
+                        {cState.active?"✓🍺":"🍺"}
+                      </button>
+                    );})() : <div style={{minWidth:36}}/>}
+
                   </div>
                 )}
               </div>
@@ -1061,7 +1122,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
 
         {/* Back 9 total */}
         <div style={{padding:"8px 12px",background:"#f1f5f9",borderRadius:8,display:"flex",justifyContent:"space-between"}}>
-          <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Back 9</span>
+          <span style={{fontSize:11,fontWeight:700,color:"#64748b"}}>Back 9 {myChulligans.back != null ? "🍺" : ""}</span>
           <span style={{fontSize:11,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>
             {course.holes.slice(9).reduce((a,_,j)=>a+sPts(scores[j+9]||0,course.holes[j+9].par,hStrokes(dH,course.holes[j+9])),0)}pts · Gross: {course.holes.slice(9).reduce((a,_,j)=>a+grossForHole(scores[j+9]||0,course.holes[j+9].par),0)}
           </span>
@@ -1145,7 +1206,7 @@ function LeaderList({onSelect}){
   return(<div><h2 style={S.sectTitle}>Leaderboards</h2>{cats.map(c=>(<button key={c.id} onClick={()=>onSelect(c.id)} style={S.card}><div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{c.name}</div><div style={{fontSize:11,color:"#94a3b8"}}>{c.desc}</div></button>))}</div>);
 }
 
-function LeaderView({state,catId,onBack}){
+function LeaderView({state,catId,onBack,onOpenMatch}){
   if(catId==="ntp"||catId==="ld"){
     return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{catId==="ntp"?"📍 Nearest the Pin":"💪 Longest Drive"}</h2>
       {ROUNDS.map(round=>{
@@ -1173,7 +1234,7 @@ function LeaderView({state,catId,onBack}){
     rankings=PLAYERS.map(p=>{
       const sc=state.scores?.[round.id]?.[p.id]||[];
       const holes=sc.filter(s=>holeFilled(s)).length;
-      return{...p,score:pStab(sc,course,courseHcp(state.handicaps?.[p.id],course,getTeeKey(state,course.id))),holes,totalHoles:18};
+      return{...p,score:pStab(sc,course,courseHcp(state.handicaps?.[p.id],course,getTeeKey(state,course.id))),holes,totalHoles:18,roundId:round.id,matchId:findMatchByPlayer(round.id,p.id)?.id};
     }).sort((a,b)=>b.score-a.score);
   } else if(catId.startsWith("2b")){
     const ri=parseInt(catId[2])-1;const round=ROUNDS[ri];const course=getCourse(round.courseId);
@@ -1187,17 +1248,17 @@ function LeaderView({state,catId,onBack}){
         pts+=Math.max(pA,pB);
         if(holeFilled(sA[i]||0)||holeFilled(sB[i]||0)) holes++;
       });
-      pairs.push({id:`${a}_${b}`,name:`${getP(a)?.short} & ${getP(b)?.short}`,team:getP(a)?.team,score:pts,holes,totalHoles:18});
+      pairs.push({id:`${a}_${b}`,name:`${getP(a)?.short} & ${getP(b)?.short}`,team:getP(a)?.team,score:pts,holes,totalHoles:18,roundId:round.id,matchId:findMatchByTeam(round.id,[a,b])?.id,chCount:getChulliganCount(state,round.id,a)+getChulliganCount(state,round.id,b)});
     });});
     rankings=pairs.sort((a,b)=>b.score-a.score);
   }
   const titles={spinners:"🏆 Spinners Cup",d1:"Day 1 Stableford",d2:"Day 2 Stableford",d3:"Day 3 Stableford","2b1":"Day 1 2-Ball","2b2":"Day 2 2-Ball","2b3":"Day 3 2-Ball"};
   return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{titles[catId]}</h2>
-    {rankings.map((r,i)=>(<div key={r.id} style={{...S.card,borderLeft:`3px solid ${r.team==="blue"?"#D4A017":"#DC2626"}`,background:i===0?"#f0fdf4":"#fff"}}>
+    {rankings.map((r,i)=>{const canOpen=!!(r.roundId&&r.matchId&&onOpenMatch);return (<button key={r.id} onClick={()=>{if(canOpen)onOpenMatch(r.roundId,r.matchId);}} style={{...S.card,borderLeft:`3px solid ${r.team==="blue"?"#D4A017":"#DC2626"}`,background:i===0?"#f0fdf4":"#fff",width:"100%",textAlign:"left",borderTop:"1px solid #e2e8f0",borderRight:"1px solid #e2e8f0",borderBottom:"1px solid #e2e8f0",cursor:canOpen?"pointer":"default"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         <div style={{width:24,fontSize:i<3?16:13,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
         <PlayerAvatar id={r.id} size={28} live={true} />
-        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{r.name}</div></div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{r.name} {r.id && !r.id.includes("_") ? chulliganBadges(getChulliganCount(state,r.roundId||"",r.id)) : (r.chCount?chulliganBadges(r.chCount):"")}</div></div>
         <div style={{textAlign:"right"}}>
           <div style={{display:"flex",alignItems:"baseline",gap:4,justifyContent:"flex-end"}}>
             <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>{r.score}</span>
@@ -1205,7 +1266,7 @@ function LeaderView({state,catId,onBack}){
           </div>
         </div>
       </div>
-    </div>))}
+    </button>);})}
   </div>);
 }
 
