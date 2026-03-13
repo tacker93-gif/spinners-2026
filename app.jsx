@@ -625,12 +625,33 @@ function LockedMessage({title,msg,onBack}){
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({state,onMatch,live}){
-  let bT=0,gT=0;
+  let bT=0,gT=0,bLive=0,gLive=0;
   ROUNDS.forEach(r=>r.matches.forEach(m=>{
     const res=matchStatus(state,m,r);
     if(res.status==="done"){if(res.winner==="blue")bT+=1;else if(res.winner==="grey")gT+=1;else{bT+=0.5;gT+=0.5;}}
+    if(res.status==="live"){
+      if(res.bUp>0)bLive+=1;
+      else if(res.bUp<0)gLive+=1;
+      else{bLive+=0.5;gLive+=0.5;}
+    }
   }));
+  const bInterim=bT+bLive;
+  const gInterim=gT+gLive;
+  const totalPoints=9;
+  const segStep=0.5;
+  const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
   const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+
+  const statusSeg=(side,segVal)=>{
+    const official=side==="blue"?bT:gT;
+    const interim=side==="blue"?bInterim:gInterim;
+    const dark=side==="blue"?"#D4A017":"#B91C1C";
+    const light=side==="blue"?"#F6DB86":"#FCA5A5";
+    if(segVal<=official) return dark;
+    if(segVal<=interim) return light;
+    return "#e5e7eb";
+  };
 
   return(
     <div>
@@ -639,16 +660,34 @@ function CupScreen({state,onMatch,live}){
           <div style={{textAlign:"center",flex:1}}>
             <div style={{fontSize:10,fontWeight:700,color:"#D4A017",textTransform:"uppercase",letterSpacing:1}}>Team Yellow</div>
             <div style={{fontSize:44,fontWeight:800,fontFamily:"'Playfair Display',serif",color:"#D4A017"}}>{live?fmt(bT):"—"}</div>
+            {showLiveTotals&&<div style={{fontSize:11,fontWeight:700,color:"#A16207",marginTop:-4}}>Live: {fmt(bInterim)}</div>}
           </div>
           <div style={{fontSize:12,color:"#94a3b8",fontWeight:600}}>vs</div>
           <div style={{textAlign:"center",flex:1}}>
             <div style={{fontSize:10,fontWeight:700,color:"#B91C1C",textTransform:"uppercase",letterSpacing:1}}>Team Red</div>
             <div style={{fontSize:44,fontWeight:800,fontFamily:"'Playfair Display',serif",color:"#B91C1C"}}>{live?fmt(gT):"—"}</div>
+            {showLiveTotals&&<div style={{fontSize:11,fontWeight:700,color:"#B91C1C",marginTop:-4}}>Live: {fmt(gInterim)}</div>}
           </div>
         </div>
         {live ? (
-          <div style={{height:6,borderRadius:3,background:"#d1d5db",overflow:"hidden",display:"flex"}}>
-            <div style={{width:`${(bT/(bT+gT||1))*100}%`,background:"linear-gradient(90deg,#D4A017,#E5B800)",transition:"width 0.5s",borderRadius:3}}/>
+          <div style={{position:"relative",paddingTop:18}}>
+            <div style={{display:"flex",gap:3,alignItems:"center"}}>
+              {segments.map(seg=>{
+                const segVal=seg*segStep;
+                const leftColor=statusSeg("blue",segVal);
+                const rightColor=statusSeg("grey",segVal);
+                return (
+                  <React.Fragment key={segVal}>
+                    <div style={{height:11,flex:1,borderRadius:3,background:leftColor,transition:"background-color 0.35s"}}/>
+                    <div style={{height:11,flex:1,borderRadius:3,background:rightColor,transition:"background-color 0.35s"}}/>
+                  </React.Fragment>
+                );
+              })}
+            </div>
+            <div style={{position:"absolute",left:"50%",top:4,transform:"translateX(-50%)",display:"flex",flexDirection:"column",alignItems:"center",pointerEvents:"none"}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#111827",lineHeight:1}}>4.5</div>
+              <div style={{width:2,height:24,background:"#111",marginTop:2,borderRadius:1}}/>
+            </div>
           </div>
         ) : (
           <div style={{textAlign:"center",paddingTop:8}}>
