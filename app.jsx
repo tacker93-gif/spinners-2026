@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+const { useState, useEffect, useCallback, useRef } = React;
 
 // ─── Supabase Configuration ──────────────────────────────────
 // INSTRUCTIONS: Replace these with your Supabase project values (see setup guide)
@@ -42,6 +42,8 @@ async function save(s) {
       );
     }
   } catch {}
+}
+
 const SK = "spinners-cup-2026-v6";
 const ADMIN_CODE = "admin2026";
 
