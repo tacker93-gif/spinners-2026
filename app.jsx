@@ -644,6 +644,20 @@ function CupScreen({state,onMatch,live}){
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 
   const blockFill=(points,idx)=>clamp(points-idx,0,1);
+  const segStep=0.5;
+  const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
+  const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+
+  const statusSeg=(side,segVal)=>{
+    const official=side==="blue"?bT:gT;
+    const interim=side==="blue"?bInterim:gInterim;
+    const dark=side==="blue"?"#D4A017":"#B91C1C";
+    const light=side==="blue"?"#F6DB86":"#FCA5A5";
+    if(segVal<=official) return dark;
+    if(segVal<=interim) return light;
+    return "#e5e7eb";
+  };
 
   return(
     <div>
@@ -677,6 +691,16 @@ function CupScreen({state,onMatch,live}){
                     {rOfficial>0&&<div style={{position:"absolute",right:0,top:0,bottom:0,width:`${rOfficial*100}%`,background:"#B91C1C"}}/>}
                     {rInterim>rOfficial&&<div style={{position:"absolute",right:`${rOfficial*100}%`,top:0,bottom:0,width:`${(rInterim-rOfficial)*100}%`,background:"#FCA5A5"}}/>}
                   </div>
+            <div style={{display:"flex",gap:3,alignItems:"center"}}>
+              {segments.map(seg=>{
+                const segVal=seg*segStep;
+                const leftColor=statusSeg("blue",segVal);
+                const rightColor=statusSeg("grey",segVal);
+                return (
+                  <React.Fragment key={segVal}>
+                    <div style={{height:11,flex:1,borderRadius:3,background:leftColor,transition:"background-color 0.35s"}}/>
+                    <div style={{height:11,flex:1,borderRadius:3,background:rightColor,transition:"background-color 0.35s"}}/>
+                  </React.Fragment>
                 );
               })}
             </div>
