@@ -1,4 +1,4 @@
-const { useState, useEffect, useCallback, useRef } = React;
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 
 // ─── Supabase Configuration ──────────────────────────────────
 // INSTRUCTIONS: Replace these with your Supabase project values (see setup guide)
@@ -15,7 +15,7 @@ const supabaseHeaders = {
 
 async function load() {
   try {
-    if (SUPABASE_URL !== "YOUR_SUPABASE_URL_HERE") {
+    if (SUPABASE_URL !== "https://wgcrujpmqftelxtutgjr.supabase.co") {
       const res = await fetch(
         `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data`,
         { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
@@ -31,7 +31,7 @@ async function load() {
 
 async function save(s) {
   try {
-    if (SUPABASE_URL !== "YOUR_SUPABASE_URL_HERE") {
+    if (SUPABASE_URL !== "https://wgcrujpmqftelxtutgjr.supabase.co") {
       await fetch(
         `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
         {
