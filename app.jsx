@@ -625,12 +625,25 @@ function LockedMessage({title,msg,onBack}){
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({state,onMatch,live}){
-  let bT=0,gT=0;
+  let bT=0,gT=0,bLive=0,gLive=0;
   ROUNDS.forEach(r=>r.matches.forEach(m=>{
     const res=matchStatus(state,m,r);
     if(res.status==="done"){if(res.winner==="blue")bT+=1;else if(res.winner==="grey")gT+=1;else{bT+=0.5;gT+=0.5;}}
+    if(res.status==="live"){
+      if(res.bUp>0)bLive+=1;
+      else if(res.bUp<0)gLive+=1;
+      else{bLive+=0.5;gLive+=0.5;}
+    }
   }));
+  const bInterim=bT+bLive;
+  const gInterim=gT+gLive;
+  const totalPoints=9;
+  const blocks=Array.from({length:totalPoints},(_,i)=>i);
   const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+
+  const blockFill=(points,idx)=>clamp(points-idx,0,1);
 
   return(
     <div>
@@ -639,16 +652,38 @@ function CupScreen({state,onMatch,live}){
           <div style={{textAlign:"center",flex:1}}>
             <div style={{fontSize:10,fontWeight:700,color:"#D4A017",textTransform:"uppercase",letterSpacing:1}}>Team Yellow</div>
             <div style={{fontSize:44,fontWeight:800,fontFamily:"'Playfair Display',serif",color:"#D4A017"}}>{live?fmt(bT):"—"}</div>
+            {showLiveTotals&&<div style={{fontSize:11,fontWeight:700,color:"#A16207",marginTop:-4}}>Live: {fmt(bInterim)}</div>}
           </div>
           <div style={{fontSize:12,color:"#94a3b8",fontWeight:600}}>vs</div>
           <div style={{textAlign:"center",flex:1}}>
             <div style={{fontSize:10,fontWeight:700,color:"#B91C1C",textTransform:"uppercase",letterSpacing:1}}>Team Red</div>
             <div style={{fontSize:44,fontWeight:800,fontFamily:"'Playfair Display',serif",color:"#B91C1C"}}>{live?fmt(gT):"—"}</div>
+            {showLiveTotals&&<div style={{fontSize:11,fontWeight:700,color:"#B91C1C",marginTop:-4}}>Live: {fmt(gInterim)}</div>}
           </div>
         </div>
         {live ? (
-          <div style={{height:6,borderRadius:3,background:"#d1d5db",overflow:"hidden",display:"flex"}}>
-            <div style={{width:`${(bT/(bT+gT||1))*100}%`,background:"linear-gradient(90deg,#D4A017,#E5B800)",transition:"width 0.5s",borderRadius:3}}/>
+          <div style={{position:"relative",paddingTop:18}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(9,minmax(0,1fr))",gap:3,alignItems:"center"}}>
+              {blocks.map(i=>{
+                const rightIdx=(totalPoints-1)-i;
+                const yOfficial=blockFill(bT,i);
+                const yInterim=blockFill(bInterim,i);
+                const rOfficial=blockFill(gT,rightIdx);
+                const rInterim=blockFill(gInterim,rightIdx);
+                return (
+                  <div key={i} style={{position:"relative",height:11,borderRadius:3,background:"#e5e7eb",overflow:"hidden"}}>
+                    {yOfficial>0&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:`${yOfficial*100}%`,background:"#D4A017"}}/>}
+                    {yInterim>yOfficial&&<div style={{position:"absolute",left:`${yOfficial*100}%`,top:0,bottom:0,width:`${(yInterim-yOfficial)*100}%`,background:"#F6DB86"}}/>}
+                    {rOfficial>0&&<div style={{position:"absolute",right:0,top:0,bottom:0,width:`${rOfficial*100}%`,background:"#B91C1C"}}/>}
+                    {rInterim>rOfficial&&<div style={{position:"absolute",right:`${rOfficial*100}%`,top:0,bottom:0,width:`${(rInterim-rOfficial)*100}%`,background:"#FCA5A5"}}/>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{position:"absolute",left:"50%",top:4,transform:"translateX(-50%)",display:"flex",flexDirection:"column",alignItems:"center",pointerEvents:"none"}}>
+              <div style={{fontSize:10,fontWeight:700,color:"#111827",lineHeight:1}}>4.5</div>
+              <div style={{width:2,height:24,background:"#111",marginTop:2,borderRadius:1}}/>
+            </div>
           </div>
         ) : (
           <div style={{textAlign:"center",paddingTop:8}}>
