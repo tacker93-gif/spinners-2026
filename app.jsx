@@ -465,7 +465,21 @@ function matchStatus(state, match, round) {
   return {status:"done",winner:bUp>0?"blue":"grey",bUp,played:18,display:`${Math.abs(bUp)} Up`};
 }
 
-const DEFAULT_STATE = { handicaps:{}, scores:{}, ntpWinners:{}, ldWinners:{}, chulligans:{}, submitted:{}, eventLive:false, tees:{standrews:"white",pk_south:"white",pk_north:"white"} };
+const DEFAULT_STATE = {
+  handicaps:{},
+  scores:{},
+  ntpWinners:{},
+  ldWinners:{},
+  chulligans:{},
+  submitted:{},
+  eventLive:false,
+  roundScoringLive:{r1:false,r2:false,r3:false},
+  tees:{standrews:"white",pk_south:"white",pk_north:"white"}
+};
+
+function isRoundScoringLive(state, roundId) {
+  return !!state?.roundScoringLive?.[roundId];
+}
 
 // ─── Main App ────────────────────────────────────────────────
 function getTeeKey(state, courseId) { return state.tees?.[courseId] || "white"; }
@@ -496,7 +510,7 @@ function App() {
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":getP(cur)?.short} onBack={()=>{setCur(null);setIsAdmin(false);}}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":getP(cur)?.short} playerId={isAdmin?null:cur} onBack={()=>{setCur(null);setIsAdmin(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
@@ -554,7 +568,7 @@ function PlayerSelect({state,onSelect,onAdmin}){
   );
 }
 
-function Header({isAdmin,name,onBack}){
+function Header({isAdmin,name,playerId,onBack}){
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
@@ -567,7 +581,7 @@ function Header({isAdmin,name,onBack}){
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
         </div>
       </div>
-      <div style={{width:28}}/>
+      <div style={{width:28,display:"flex",justifyContent:"flex-end"}}>{playerId ? <PlayerAvatar id={playerId} size={28} live={true} border={false} /> : null}</div>
     </div>
   );
 }
@@ -813,11 +827,14 @@ function ScoresList({state,cur,isAdmin,onSelect}){
   return(
     <div>
       <h2 style={S.sectTitle}>Enter Scores</h2>
-      {ROUNDS.map(round=>(
+      {ROUNDS.map(round=>{
+        const scoringLive = isRoundScoringLive(state, round.id);
+        return (
         <div key={round.id} style={{marginBottom:20}}>
           <div style={{marginBottom:8}}>
             <div style={{fontSize:13,fontWeight:700,color:"#1a2e1a"}}>Round {round.num} — {round.day}</div>
             <div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div>
+            {!scoringLive && !isAdmin && <div style={{fontSize:10,color:"#b45309",marginTop:2}}>Scoring locked by admin</div>}
           </div>
           {(isAdmin?PLAYERS:PLAYERS.filter(p=>p.id===cur)).map(p=>{
             const sc=state.scores?.[round.id]?.[p.id]||[];
@@ -827,7 +844,8 @@ function ScoresList({state,cur,isAdmin,onSelect}){
             const pts=pStab(sc,course,dH);
             const sub=isSubmitted(state,round.id,p.id);
             return(
-              <button key={p.id} onClick={()=>onSelect(round.id,p.id)} style={{...S.card,borderLeft:`3px solid ${p.team==="blue"?"#D4A017":"#DC2626"}`,background:sub?"#f0fdf4":"#fff"}}>
+              <button key={p.id} onClick={()=>onSelect(round.id,p.id)} disabled={!isAdmin && !scoringLive}
+                style={{...S.card,borderLeft:`3px solid ${p.team==="blue"?"#D4A017":"#DC2626"}`,background:sub?"#f0fdf4":"#fff",opacity:(!isAdmin && !scoringLive)?0.65:1,cursor:(!isAdmin && !scoringLive)?"not-allowed":"pointer"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                   <div>
                     <div style={{fontSize:14,fontWeight:600,color:"#1e293b"}}>
@@ -844,7 +862,7 @@ function ScoresList({state,cur,isAdmin,onSelect}){
             );
           })}
         </div>
-      ))}
+      );})}
     </div>
   );
 }
@@ -862,7 +880,8 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
 
   const isMine = playerId === cur;
   const mySubmitted = isSubmitted(state, roundId, playerId);
-  const canEdit = isAdmin || (isMine && !mySubmitted);
+  const roundScoringLive = isRoundScoringLive(state, roundId);
+  const canEdit = isAdmin || (roundScoringLive && isMine && !mySubmitted);
 
   const scores=state.scores?.[roundId]?.[playerId]||[];
   const partnerScores=state.scores?.[roundId]?.[partnerId]||[];
@@ -957,6 +976,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
         <div>
           <h2 style={{...S.sectTitle,marginBottom:2}}>{player?.name} {chulliganBadges(getChulliganCount(state,roundId,playerId))}</h2>
+          <div style={{fontSize:10,color:"#b45309",fontWeight:700}}>🍺 Chulligans: {getChulliganCount(state,roundId,playerId)}/2</div>
           <p style={{fontSize:12,color:"#94a3b8",margin:0}}>{round.courseName} · {round.day}</p>
           {mySubmitted && <div style={{fontSize:11,color:"#16a34a",fontWeight:600,marginTop:4}}>✓ Score Submitted</div>}
         </div>
@@ -971,9 +991,16 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
       {partner && (
         <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 12px",borderRadius:8,border:"1px solid #e2e8f0",background:"#f8faff",marginBottom:8}}>
           <span style={{fontSize:12,fontWeight:600,color:"#B8860B"}}>👥 {partner.short} {chulliganBadges(getChulliganCount(state,roundId,partnerId))}</span>
+          <span style={{fontSize:10,color:"#b45309",fontWeight:700}}>🍺 {getChulliganCount(state,roundId,partnerId)}/2</span>
           <span style={{marginLeft:"auto",fontSize:11,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>
             {pTotalPts}pts · Gross: {pTotalGross} · {pFilled}/18
           </span>
+        </div>
+      )}
+
+      {!roundScoringLive && !isAdmin && (
+        <div style={{padding:"8px 12px",marginBottom:8,borderRadius:8,background:"#fffbeb",border:"1px solid #fde68a",fontSize:12,color:"#92400e",fontWeight:600}}>
+          Scoring for this round is locked. The admin will open it on game day.
         </div>
       )}
 
@@ -1060,12 +1087,12 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                   {(isNtp||isLd)&&canEdit&&(
                     <button onClick={()=>{upd(s=>{if(isNtp){if(!s.ntpWinners)s.ntpWinners={};s.ntpWinners[ntpKey]=s.ntpWinners[ntpKey]===playerId?null:playerId;}else{if(!s.ldWinners)s.ldWinners={};s.ldWinners[ldKey]=s.ldWinners[ldKey]===playerId?null:playerId;}});}}
                       style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${isNtp?(isNtpW?"#16a34a":"#d1d5db"):(isLdW?"#d97706":"#d1d5db")}`,background:isNtp?(isNtpW?"#f0fdf4":"#fff"):(isLdW?"#fffbeb":"#fff"),fontSize:9,fontWeight:600,color:isNtp?(isNtpW?"#16a34a":"#94a3b8"):(isLdW?"#d97706":"#94a3b8"),cursor:"pointer",whiteSpace:"nowrap"}}>
-                      {isNtp?(isNtpW?"✓ NTP":"Claim NTP"):(isLdW?"✓ LD":"Claim LD")}
+                      {isNtp?(isNtpW?"✓ NTP":"Claim NTP ⛳"):(isLdW?"✓ LD":"Claim LD 💣")}
                     </button>
                   )}
-                  {canEdit&&(()=>{const cState=chulliganButtonState(playerId,i);return (
-                    <button onClick={()=>toggleChulligan(playerId,i)} disabled={cState.locked}
-                      style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:12,fontWeight:700,color:cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:cState.locked?"not-allowed":"pointer",opacity:cState.locked?0.6:1}}>
+                  {(()=>{const cState=chulliganButtonState(playerId,i);return (
+                    <button onClick={()=>canEdit && toggleChulligan(playerId,i)} disabled={!canEdit || cState.locked}
+                      style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:12,fontWeight:700,color:(!canEdit&& !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEdit||cState.locked)?"not-allowed":"pointer",opacity:(!canEdit||cState.locked)?0.7:1}}>
                       {cState.active?"✓🍺":"🍺"}
                     </button>
                   );})()}
@@ -1079,7 +1106,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       {pStrk>0&&<div style={{fontSize:11,color:"#2d6a4f",fontWeight:600}}>+{pStrk}</div>}
                     </div>
                     <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                      {isMine && !isSubmitted(state, roundId, partnerId) ? (
+                      {(isAdmin || (roundScoringLive && isMine)) && !isSubmitted(state, roundId, partnerId) ? (
                         <>
                           {pIsPU ? (
                             <div onClick={()=>setScore(partnerId,i,0)}
@@ -1106,12 +1133,12 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       :pVal>0?(<div><div style={{fontSize:14,fontWeight:600,color:sColor(pPts),fontFamily:"'JetBrains Mono',monospace"}}>{pPts}pts</div><div style={{fontSize:8,color:sColor(pPts)}}>{sLabel(pPts)}</div></div>)
                       :<div style={{color:"#d1d5db",fontSize:11}}>—</div>}
                     </div>
-                    {isMine && !isSubmitted(state, roundId, partnerId) ? (()=>{const cState=chulliganButtonState(partnerId,i);return (
-                      <button onClick={()=>toggleChulligan(partnerId,i)} disabled={cState.locked}
-                        style={{minWidth:36,padding:"4px 6px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:11,color:cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:cState.locked?"not-allowed":"pointer",opacity:cState.locked?0.6:1}}>
+                    {(()=>{const cState=chulliganButtonState(partnerId,i); const canEditPartner=(isAdmin || (roundScoringLive && isMine)) && !isSubmitted(state, roundId, partnerId); return (
+                      <button onClick={()=>canEditPartner && toggleChulligan(partnerId,i)} disabled={!canEditPartner || cState.locked}
+                        style={{minWidth:36,padding:"4px 6px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:11,color:(!canEditPartner && !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEditPartner||cState.locked)?"not-allowed":"pointer",opacity:(!canEditPartner||cState.locked)?0.7:1}}>
                         {cState.active?"✓🍺":"🍺"}
                       </button>
-                    );})() : <div style={{minWidth:36}}/>}
+                    );})()}
 
                   </div>
                 )}
@@ -1135,7 +1162,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
         </div>
 
         {/* Submit / Confirm section */}
-        {isMine && !mySubmitted && filled === 18 && (
+        {roundScoringLive && isMine && !mySubmitted && filled === 18 && (
           <div style={{marginTop:8}}>
             {!confirmSubmit ? (
               <button onClick={() => setConfirmSubmit(true)}
@@ -1165,7 +1192,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
           </div>
         )}
 
-        {isMine && !mySubmitted && filled < 18 && filled > 0 && (
+        {roundScoringLive && isMine && !mySubmitted && filled < 18 && filled > 0 && (
           <div style={{marginTop:8,padding:"10px 14px",background:"#f1f5f9",borderRadius:10,textAlign:"center"}}>
             <span style={{fontSize:12,color:"#64748b"}}>{18 - filled} hole{18-filled!==1?"s":""} remaining before you can submit</span>
           </div>
@@ -1214,7 +1241,7 @@ function LeaderView({state,catId,onBack,onOpenMatch}){
         const key=`${round.id}_${catId}`;
         const wId=catId==="ntp"?state.ntpWinners?.[key]:state.ldWinners?.[key];
         const w=wId?getP(wId):null;
-        return(<div key={round.id} style={{...S.card,borderLeft:`3px solid ${w?"#16a34a":"#e2e8f0"}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>Round {round.num} — Hole {hn}</div><div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div></div><div style={{fontSize:14,fontWeight:700,color:w?"#1e293b":"#d1d5db"}}>{w?.name||"TBD"}</div></div></div>);
+        return(<div key={round.id} style={{...S.card,borderLeft:`3px solid ${w?"#16a34a":"#e2e8f0"}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>Round {round.num} — Hole {hn}</div><div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}>{w && <PlayerAvatar id={w.id} size={24} live={true} />}<div style={{fontSize:14,fontWeight:700,color:w?"#1e293b":"#d1d5db"}}>{w?.name||"TBD"}</div></div></div></div>);
       })}
     </div>);
   }
@@ -1257,7 +1284,14 @@ function LeaderView({state,catId,onBack,onOpenMatch}){
     {rankings.map((r,i)=>{const canOpen=!!(r.roundId&&r.matchId&&onOpenMatch);return (<button key={r.id} onClick={()=>{if(canOpen)onOpenMatch(r.roundId,r.matchId);}} style={{...S.card,borderLeft:`3px solid ${r.team==="blue"?"#D4A017":"#DC2626"}`,background:i===0?"#f0fdf4":"#fff",width:"100%",textAlign:"left",borderTop:"1px solid #e2e8f0",borderRight:"1px solid #e2e8f0",borderBottom:"1px solid #e2e8f0",cursor:canOpen?"pointer":"default"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         <div style={{width:24,fontSize:i<3?16:13,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
-        <PlayerAvatar id={r.id} size={28} live={true} />
+        {r.id && r.id.includes("_") ? (
+          <div style={{display:"flex",alignItems:"center",marginRight:2}}>
+            <PlayerAvatar id={r.id.split("_")[0]} size={24} live={true} />
+            <div style={{marginLeft:-8}}><PlayerAvatar id={r.id.split("_")[1]} size={24} live={true} /></div>
+          </div>
+        ) : (
+          <PlayerAvatar id={r.id} size={28} live={true} />
+        )}
         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{r.name} {r.id && !r.id.includes("_") ? chulliganBadges(getChulliganCount(state,r.roundId||"",r.id)) : (r.chCount?chulliganBadges(r.chCount):"")}</div></div>
         <div style={{textAlign:"right"}}>
           <div style={{display:"flex",alignItems:"baseline",gap:4,justifyContent:"flex-end"}}>
@@ -1505,6 +1539,16 @@ function RulesPage({onBack}){
       ],
     },
     {
+      title: "💵 Prize Money",
+      items: [
+        "Round 1, Round 2, Round 3 payouts:",
+        "• IND Winner: $100 per round.",
+        "• NTP: $50 per round.",
+        "• Longest Drive: $50 per round.",
+        "• Daily Team Winners: $100 per team per round ($50 each).",
+      ],
+    },
+    {
       title: "🍺 Chulligans",
       items: [
         "Each player is allowed 1 Chulligan per 9 holes (2 per round).",
@@ -1550,6 +1594,7 @@ function RulesPage({onBack}){
 
 // ─── Players ─────────────────────────────────────────────────
 function PlayersPage({state,upd,isAdmin,live}){
+  const [confirmReset,setConfirmReset]=useState(false);
   const teams = [
     { label:"Team Yellow", team:"blue", color:"#D4A017", border:"#D4A017" },
     { label:"Team Red", team:"grey", color:"#B91C1C", border:"#DC2626" },
@@ -1574,6 +1619,48 @@ function PlayersPage({state,upd,isAdmin,live}){
               {state.eventLive ? "Go Hidden" : "Go Live"}
             </button>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{padding:"14px 16px",background:"#f8fafc",borderRadius:12,border:"1px solid #cbd5e1",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#1e293b",marginBottom:10}}>🎯 Round Scoring Release</div>
+          {ROUNDS.map(round=>{
+            const open = isRoundScoringLive(state, round.id);
+            return (
+              <div key={round.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>Round {round.num}</div>
+                  <div style={{fontSize:10,color:"#94a3b8"}}>{round.courseName}</div>
+                </div>
+                <button onClick={()=>upd(s=>{if(!s.roundScoringLive)s.roundScoringLive={r1:false,r2:false,r3:false}; s.roundScoringLive[round.id]=!s.roundScoringLive[round.id];})}
+                  style={{padding:"7px 12px",borderRadius:8,border:"none",background:open?"#dc2626":"#16a34a",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                  {open?"Lock Scoring":"Open Scoring"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{padding:"14px 16px",background:"#fff1f2",borderRadius:12,border:"1px solid #fecdd3",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#9f1239",marginBottom:6}}>🧨 Reset App Data</div>
+          <div style={{fontSize:11,color:"#9f1239",marginBottom:10}}>Clears all scores, claims, handicaps, submissions, chulligans, tees and visibility settings.</div>
+          {!confirmReset ? (
+            <button onClick={()=>setConfirmReset(true)} style={{padding:"8px 12px",borderRadius:8,border:"1px solid #fda4af",background:"#fff",color:"#be123c",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+              Reset All Scoring & Data
+            </button>
+          ) : (
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={()=>{upd(s=>Object.assign(s,DC(DEFAULT_STATE)));setConfirmReset(false);}} style={{padding:"8px 12px",borderRadius:8,border:"none",background:"#be123c",color:"#fff",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                Confirm Reset
+              </button>
+              <button onClick={()=>setConfirmReset(false)} style={{padding:"8px 12px",borderRadius:8,border:"1px solid #d1d5db",background:"#fff",color:"#64748b",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
       )}
 
