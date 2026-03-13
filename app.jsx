@@ -448,6 +448,10 @@ function App() {
   const [sub,setSub]=useState(null);
 
   useEffect(()=>{load().then(s=>{setState(s||DC(DEFAULT_STATE));setLoading(false);});},[]);
+  useEffect(()=>{
+    if(!cur) return;
+    load().then(s=>{if(s)setState(s);});
+  },[cur,tab,sub]);
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
   if(loading||!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
