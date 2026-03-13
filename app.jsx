@@ -862,7 +862,7 @@ function ScoresList({state,cur,isAdmin,onSelect}){
             );
           })}
         </div>
-      ))}
+      );})}
     </div>
   );
 }
