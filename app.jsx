@@ -638,6 +638,12 @@ function CupScreen({state,onMatch,live}){
   const bInterim=bT+bLive;
   const gInterim=gT+gLive;
   const totalPoints=9;
+  const blocks=Array.from({length:totalPoints},(_,i)=>i);
+  const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+
+  const blockFill=(points,idx)=>clamp(points-idx,0,1);
   const segStep=0.5;
   const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
   const fmt=n=>n%1===0?n:n.toFixed(1);
@@ -671,6 +677,20 @@ function CupScreen({state,onMatch,live}){
         </div>
         {live ? (
           <div style={{position:"relative",paddingTop:18}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(9,minmax(0,1fr))",gap:3,alignItems:"center"}}>
+              {blocks.map(i=>{
+                const rightIdx=(totalPoints-1)-i;
+                const yOfficial=blockFill(bT,i);
+                const yInterim=blockFill(bInterim,i);
+                const rOfficial=blockFill(gT,rightIdx);
+                const rInterim=blockFill(gInterim,rightIdx);
+                return (
+                  <div key={i} style={{position:"relative",height:11,borderRadius:3,background:"#e5e7eb",overflow:"hidden"}}>
+                    {yOfficial>0&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:`${yOfficial*100}%`,background:"#D4A017"}}/>}
+                    {yInterim>yOfficial&&<div style={{position:"absolute",left:`${yOfficial*100}%`,top:0,bottom:0,width:`${(yInterim-yOfficial)*100}%`,background:"#F6DB86"}}/>}
+                    {rOfficial>0&&<div style={{position:"absolute",right:0,top:0,bottom:0,width:`${rOfficial*100}%`,background:"#B91C1C"}}/>}
+                    {rInterim>rOfficial&&<div style={{position:"absolute",right:`${rOfficial*100}%`,top:0,bottom:0,width:`${(rInterim-rOfficial)*100}%`,background:"#FCA5A5"}}/>}
+                  </div>
             <div style={{display:"flex",gap:3,alignItems:"center"}}>
               {segments.map(seg=>{
                 const segVal=seg*segStep;
