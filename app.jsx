@@ -1266,6 +1266,7 @@ function LeaderView({state,catId,onBack,onOpenMatch}){
           </div>
         </div>
       </div>
+    </button>);})}
     </button>);}))
   </div>);
 }
