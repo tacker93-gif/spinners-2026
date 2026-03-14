@@ -144,6 +144,35 @@ const PLAYERS = [
   { id:"cam",name:"Cam Clark",short:"Cam",team:"grey" },
 ];
 
+const PLAYER_BIOS = {
+  angus: "Angus arrives with the most violent baseball-bat driver swing the Mornington Peninsula has ever seen, despite barely touching a club thanks to life wrangling young kids. Don’t expect many practice swings, but do expect plenty of stories between shots. In a team environment he’s the bloke keeping morale high and the chat flowing, even if the swing occasionally needs a reminder which direction the fairway goes.",
+  tom: "Tom swings the club with the smooth confidence of a man used to making big calls in private equity and expecting them to work out. Armed with a swing that looks far too easy and a head large enough to store all that confidence, he’s quietly convinced the Spinners Cup is his to lose. In a team format he’ll happily assume leadership duties, whether anyone asked him to or not.",
+  cam: "Cam has flown down from Brisbane with a rugby-hardened physique and a downswing that looks like it’s trying to tackle the ball through the turf. The defending champion is chasing back-to-back Spinners Cups and carries himself with the quiet confidence of a former pro athlete. In a team setting he’ll bring a competitive edge and expect everyone else to lift to his standards.",
+  chris: "Chris arrives fresh from the international cricket circuit and immediately claims the title of best golfer on the trip, which annoyingly might actually be true. Equal parts pretty boy and elite sportsman, he stripes it around the course while quietly trying to escape the long shadow of his little brother, a two-time Spinners Cup champion. In a team environment he’ll be the steady hand — although the sledging will start the moment someone mentions his brother.",
+  nick: "Nick worships Tiger Woods and approaches the Spinners Cup with the same intensity, which makes last year’s playoff loss sting even more. With his home course being short, there’s enormous pressure on his driver to finally prove itself on a proper track. In a team setting he’ll bring serious competitive energy, along with the occasional Tiger-inspired fist pump.",
+  jason: "Jason possesses what many experts are already calling the ugliest swing ever brought to the Mornington Peninsula. Somehow the ball still goes forward often enough to keep him in the game, much to the confusion of everyone watching. Despite the chaotic mechanics, his clean-cut physique suggests a man built for sport — unfortunately the golf swing didn’t get the same treatment. In a team format he’ll happily grind away and try to sneak in the occasional surprisingly solid shot.",
+  jturner: "James Turner launches the ball enormous distances for a man who looks like he should still be shopping in the kids section. As the self-appointed Chief Marketing Officer of the Spinners Cup, he’s responsible for most of the hype and very little of the detail. In a team environment he’ll be excellent for morale, even if his concentration occasionally wanders off with the marketing ideas.",
+  callum: "Callum owns a slappy swing that could either thrive or be completely destroyed by the notorious Melbourne sandbelt winds. On the greens his hands have a habit of shaking like a washing machine under pressure. With his first child on the way, this may be the last weekend of uninterrupted golf for the next 18 years. In a team setting he’ll be desperate to contribute — ideally before the putter starts trembling.",
+  lach: "Lach has been putting in serious hours with a golf coach and is determined to let everyone know about it. Still relatively new to the game, but already talks like he’s got a green jacket in the wardrobe. Confidence is sky high — the scorecard remains under investigation. In a team environment he’ll bring enthusiasm and plenty of advice, requested or otherwise.",
+  jkelly: "James carries the emotional scars of a golf trip where he shanked his first tee shot twice in a row, an achievement few golfers can claim. The tech sales professional insists those days are behind him, but the group will be watching nervously on the first tee. In a team setting he’ll be keen to redeem himself and prove the shank era is officially over.",
+  alex: "Alex is annoyingly good at basically every sport he tries, and golf appears to be no exception. When he’s not working for a furniture manufacturer, renovating a house, or flying to China, he somehow finds time to stripe the ball. Natural talent is a dangerous thing in the Spinners Cup. In a team format he’ll likely be the dependable contributor who quietly carries the side.",
+  luke: "Luke has flown in from Dubai and arrives convinced the Spinners Cup is already his. A former clutch basketball player, he backs himself in big moments and isn’t shy about reminding the group. Whether the confidence translates to golf remains the weekend’s biggest subplot. In a team environment he’ll relish the big moments and happily take responsibility for the pressure shots.",
+};
+
+const PLAYER_BIO_IMAGES = {
+  tom: "./Tom Crawford.png",
+  cam: "./Cam Clark.png",
+  chris: "./Chris Green.png",
+  nick: "./Nick Tankard.png",
+  jason: "./Jason McIlwaine (2).png",
+  jturner: "./James Turner.png",
+  callum: "./Callum Hinwood.png",
+  lach: "./Lach Taylor (2).png",
+  jkelly: "./James Kelly (2).png",
+  luke: "./Luke Abi-Hanna.png",
+};
+
+
 // NTP: par 3, not in first 5 holes of front or back nine (holes 1-5 or 10-14)
 function getNtpHole(courseId) {
   const c = getCourse(courseId);
@@ -1931,6 +1960,7 @@ function PastChampionsPage({onBack}) {
 function PlayersPage({state,upd,isAdmin,live}){
   const [isGeneratingSummary,setIsGeneratingSummary]=useState(false);
   const [confirmReset,setConfirmReset]=useState(false);
+  const [selectedBio, setSelectedBio] = useState(null);
   const teams = [
     { label:"Team Yellow", team:"blue", color:"#D4A017", border:"#D4A017" },
     { label:"Team Red", team:"grey", color:"#B91C1C", border:"#DC2626" },
@@ -2084,7 +2114,13 @@ function PlayersPage({state,upd,isAdmin,live}){
                     <div style={{display:"flex",alignItems:"center",gap:10,flex:1}}>
                       <PlayerAvatar id={player.id} size={42} live={true} />
                       <div style={{flex:1}}>
-                        <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{player.name}</div>
+                      <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{player.name}</div>
+                      <button
+                        onClick={() => setSelectedBio(player.id)}
+                        style={{marginTop:6,padding:"5px 10px",borderRadius:999,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1d4ed8",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}
+                      >
+                        View Bio
+                      </button>
                       {hasHcp && (
                         <div style={{fontSize:10,color:"#94a3b8",marginTop:6,display:"flex",gap:12,flexWrap:"wrap"}}>
                           {COURSES.map(c => {
@@ -2142,6 +2178,12 @@ function PlayersPage({state,upd,isAdmin,live}){
                     <PlayerAvatar id={player.id} size={42} live={false} />
                     <div style={{flex:1}}>
                     <div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{player.name}</div>
+                    <button
+                      onClick={() => setSelectedBio(player.id)}
+                      style={{marginTop:6,padding:"5px 10px",borderRadius:999,border:"1px solid #bfdbfe",background:"#eff6ff",color:"#1d4ed8",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}
+                    >
+                      View Bio
+                    </button>
                     {hasHcp && (
                       <div style={{fontSize:10,color:"#94a3b8",marginTop:6,display:"flex",gap:12,flexWrap:"wrap"}}>
                         {COURSES.map(c => (
@@ -2163,6 +2205,29 @@ function PlayersPage({state,upd,isAdmin,live}){
               </div>
             );
           })}
+        </div>
+      )}
+
+      {selectedBio && (
+        <div
+          onClick={() => setSelectedBio(null)}
+          style={{position:"fixed",inset:0,background:"rgba(15,23,42,0.65)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200,padding:16}}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{width:"100%",maxWidth:400,maxHeight:"85vh",overflowY:"auto",background:"#fff",borderRadius:16,padding:18,border:"1px solid #e2e8f0",boxShadow:"0 20px 40px rgba(15,23,42,0.22)"}}
+          >
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"start",gap:10,marginBottom:10}}>
+              <div style={{fontSize:20,fontWeight:800,color:"#0f172a",fontFamily:"'Playfair Display',serif"}}>{getP(selectedBio)?.name}</div>
+              <button onClick={() => setSelectedBio(null)} style={{border:"none",background:"transparent",fontSize:20,lineHeight:1,color:"#64748b",cursor:"pointer"}}>×</button>
+            </div>
+            <img
+              src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
+              alt={getP(selectedBio)?.name}
+              style={{display:"block",width:"100%",maxWidth:280,aspectRatio:"1 / 1",borderRadius:14,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0"}}
+            />
+            <p style={{margin:0,fontSize:14,color:"#334155",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{PLAYER_BIOS[selectedBio] || "Bio coming soon."}</p>
+          </div>
         </div>
       )}
     </div>
