@@ -13,10 +13,20 @@ const supabaseHeaders = {
   "Prefer": "return=minimal",
 };
 
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function load() {
   try {
     if (SUPABASE_URL && SUPABASE_KEY) {
-      const res = await fetch(
+      const res = await fetchWithTimeout(
         `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data`,
         { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
       );
@@ -32,7 +42,7 @@ async function load() {
 async function save(s) {
   try {
     if (SUPABASE_URL && SUPABASE_KEY) {
-      await fetch(
+      await fetchWithTimeout(
         `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
         {
           method: "PATCH",
