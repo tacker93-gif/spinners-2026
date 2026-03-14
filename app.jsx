@@ -525,6 +525,8 @@ const DEFAULT_STATE = {
   ldWinners:{},
   chulligans:{},
   submitted:{},
+  dailySummaries:{},
+  summaryReads:{},
   eventLive:false,
   roundScoringLive:{r1:false,r2:false,r3:false},
   tees:{standrews:"white",pk_south:"white",pk_north:"white"}
@@ -540,6 +542,98 @@ function getSlope(course, teeKey) { return course.teeData[teeKey]?.slope || 132;
 function getRating(course, teeKey) { return course.teeData[teeKey]?.rating || 72; }
 function getTeeLabel(course, teeKey) { return course.teeData[teeKey]?.label || "White"; }
 function getM(hole, teeKey) { return teeKey === "blue" ? hole.b : hole.w; }
+
+function isRoundFullySubmitted(state, roundId) {
+  return PLAYERS.every(p => !!state?.submitted?.[roundId]?.[p.id]);
+}
+
+function getRoundLeaderboard(state, round) {
+  const course = getCourse(round.courseId);
+  return PLAYERS.map(p => {
+    const scores = state.scores?.[round.id]?.[p.id] || [];
+    const holes = scores.filter(s => holeFilled(s)).length;
+    return {
+      ...p,
+      score: pStab(scores, course, courseHcp(state.handicaps?.[p.id], course, getTeeKey(state, course.id))),
+      holes,
+    };
+  }).sort((a,b)=>b.score-a.score);
+}
+
+function getOverallLeaderboard(state) {
+  return PLAYERS.map(p => {
+    let total = 0;
+    ROUNDS.forEach(r => {
+      const course = getCourse(r.courseId);
+      const scores = state.scores?.[r.id]?.[p.id] || [];
+      total += pStab(scores, course, courseHcp(state.handicaps?.[p.id], course, getTeeKey(state, course.id)));
+    });
+    return { ...p, total };
+  }).sort((a,b)=>b.total-a.total);
+}
+
+function callBanterModel(prompt) {
+  const apiKey = window.localStorage.getItem("spinners-llm-api-key");
+  if (!apiKey) return null;
+  return fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      temperature: 0.9,
+      messages: [
+        { role: "system", content: "You write funny, cheeky but friendly golf weekend banter." },
+        { role: "user", content: prompt },
+      ],
+    }),
+  })
+    .then(r => (r.ok ? r.json() : null))
+    .then(d => d?.choices?.[0]?.message?.content || null)
+    .catch(() => null);
+}
+
+async function generateRoundSummary(state, roundId) {
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return null;
+  const leaderboard = getRoundLeaderboard(state, round);
+  const overall = getOverallLeaderboard(state);
+  const ntpId = state.ntpWinners?.[`${round.id}_ntp`];
+  const ldId = state.ldWinners?.[`${round.id}_ld`];
+  const top3 = leaderboard.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.score} pts)`).join("\n");
+  const overallTop = overall.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.total} total)`).join("\n");
+  const prompt = `Write a short daily summary for round ${round.num} (${round.courseName}).\nRound leaders:\n${top3}\n\nOverall leaders:\n${overallTop}\n\nNTP winner: ${ntpId ? getP(ntpId)?.name : "TBC"}\nLD winner: ${ldId ? getP(ldId)?.name : "TBC"}\n\nReturn exactly three bullet points: one funny headline, one stat nugget, one friendly sledge line.`;
+  const aiText = await callBanterModel(prompt);
+
+  if (aiText) {
+    return {
+      roundId,
+      roundNum: round.num,
+      title: `Round ${round.num} Banter Bulletin`,
+      content: aiText,
+      source: "llm",
+      releasedAt: new Date().toISOString(),
+    };
+  }
+
+  const [first, second] = leaderboard;
+  const leaderGap = first && second ? first.score - second.score : 0;
+  return {
+    roundId,
+    roundNum: round.num,
+    title: `Round ${round.num} Banter Bulletin`,
+    content: [
+      `• **Clubhouse Headline:** ${first?.short || "Someone"} strutted into ${round.courseName} like they owned the joint, posting **${first?.score ?? "??"} pts** and charging into first.` ,
+      `• **Stat Nerd Corner:** The gap from 1st to 2nd is **${leaderGap} pts**, while overall leaderboard chaos remains deliciously alive going into the next round.`,
+      `• **Weekend Sledge:** NTP went to **${ntpId ? getP(ntpId)?.short : "the mystery sniper"}** and LD to **${ldId ? getP(ldId)?.short : "the unknown bomber"}** — receipts are being checked by the loudest man in the group chat.`,
+    ].join("\n"),
+    source: "fallback",
+    releasedAt: new Date().toISOString(),
+  };
+}
+
 function App() {
   const [state,setState]=useState(()=>DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
@@ -548,6 +642,7 @@ function App() {
   const [tab,setTab]=useState("cup");
   const [sub,setSub]=useState(null);
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
+  const [summaryPopup,setSummaryPopup]=useState(null);
 
   useEffect(()=>{
     let alive=true;
@@ -565,6 +660,13 @@ function App() {
     if(!cur) return;
     load().then(s=>{if(s)setState(s);});
   },[cur,tab,sub]);
+
+  useEffect(() => {
+    if (!cur || cur === "admin" || cur === "spectator") return;
+    const released = Object.values(state.dailySummaries || {}).sort((a,b) => new Date(b.releasedAt||0) - new Date(a.releasedAt||0));
+    const unseen = released.find(s => !state.summaryReads?.[cur]?.[s.roundId]);
+    if (unseen) setSummaryPopup(unseen);
+  }, [cur, state.dailySummaries, state.summaryReads]);
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
@@ -588,8 +690,26 @@ function App() {
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="trip"&&<TripSchedule onBack={()=>setSub(null)}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="pkrooms"&&<PkRoomsPage onBack={()=>setSub(null)}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="rules"&&<RulesPage onBack={()=>setSub(null)}/>}
+        {tab==="schedule"&&sub?.t==="sched"&&sub.id==="summaries"&&<SummaryHubPage state={state} cur={cur} upd={upd} onBack={()=>setSub(null)}/>}
+        {tab==="schedule"&&sub?.t==="sched"&&sub.id==="champions"&&<PastChampionsPage onBack={()=>setSub(null)}/>}
         {tab==="players"&&<PlayersPage state={state} upd={upd} isAdmin={isAdmin} live={live}/>}
       </div>
+      {summaryPopup && (
+        <DailySummaryModal
+          summary={summaryPopup}
+          onClose={() => {
+            const active = summaryPopup;
+            setSummaryPopup(null);
+            if (cur && cur !== "admin" && cur !== "spectator") {
+              upd(s => {
+                if (!s.summaryReads) s.summaryReads = {};
+                if (!s.summaryReads[cur]) s.summaryReads[cur] = {};
+                s.summaryReads[cur][active.roundId] = true;
+              });
+            }
+          }}
+        />
+      )}
       <SponsorFooter />
       <NavBar tab={tab} isSpectator={isSpectator} onTab={t=>{setTab(t);setSub(null);}}/>
     </div>
@@ -1457,6 +1577,20 @@ function ScheduleMenu({onSelect}){
           <div style={{fontSize:12,color:"#94a3b8"}}>Formats, scoring & special rules for the weekend</div>
         </div>
       </button>
+      <button onClick={()=>onSelect("summaries")} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
+        <span style={{fontSize:28}}>🧠</span>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#1e293b"}}>Weekend Banter Summary</div>
+          <div style={{fontSize:12,color:"#94a3b8"}}>Released daily write-ups with stats, laughs and sledges</div>
+        </div>
+      </button>
+      <button onClick={()=>onSelect("champions")} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
+        <span style={{fontSize:28}}>👑</span>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#1e293b"}}>Past Champions</div>
+          <div style={{fontSize:12,color:"#94a3b8"}}>Hall of fame, legends, and highly selective historical truth</div>
+        </div>
+      </button>
     </div>
   );
 }
@@ -1727,8 +1861,79 @@ function RulesPage({onBack}){
   );
 }
 
+function DailySummaryModal({summary,onClose}) {
+  return (
+    <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(15,23,42,0.65)",zIndex:260,display:"flex",alignItems:"center",justifyContent:"center",padding:16}} onClick={onClose}>
+      <div style={{width:"min(560px,100%)",background:"#fff",borderRadius:16,border:"1px solid #dbeafe",padding:18,boxShadow:"0 20px 40px rgba(0,0,0,.25)"}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:"#2563eb",letterSpacing:0.7,textTransform:"uppercase"}}>Daily Release</div>
+            <div style={{fontSize:20,fontWeight:800,color:"#0f172a",fontFamily:"'Playfair Display',serif"}}>{summary.title}</div>
+          </div>
+          <button onClick={onClose} style={{width:30,height:30,borderRadius:15,border:"1px solid #cbd5e1",background:"#fff",color:"#475569",cursor:"pointer",fontWeight:700}}>×</button>
+        </div>
+        <div style={{marginTop:12,fontSize:13,color:"#475569",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{summary.content}</div>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:14}}>
+          <div style={{fontSize:11,color:"#94a3b8"}}>Find this again later in Info → Weekend Banter Summary.</div>
+          <button onClick={onClose} style={{padding:"8px 14px",borderRadius:8,border:"none",background:"#0f766e",color:"#fff",fontWeight:700,cursor:"pointer"}}>Got it</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryHubPage({state,cur,onBack}) {
+  const summaries = Object.values(state.dailySummaries || {}).sort((a,b)=>new Date(b.releasedAt||0)-new Date(a.releasedAt||0));
+  return (
+    <div>
+      <button onClick={onBack} style={S.backBtn}>← Info</button>
+      <h2 style={S.sectTitle}>Weekend Banter Summary</h2>
+      <p style={{fontSize:12,color:"#64748b",lineHeight:1.5,marginBottom:12}}>Best location suggestion: a once-only pop-up right after login for newly released rounds, with this page as the permanent archive.</p>
+      {summaries.length===0 && <div style={{...S.card,fontSize:13,color:"#64748b"}}>No daily summary released yet. Admin can release once all scores are submitted for a round.</div>}
+      {summaries.map(s => (
+        <div key={s.roundId} style={{...S.card,borderLeft:"3px solid #2563eb",background:"#f8fbff"}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:6}}>
+            <div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>{s.title}</div>
+            <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700}}>{s.source === "llm" ? "LLM" : "Fallback"}</div>
+          </div>
+          <div style={{fontSize:13,color:"#475569",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{s.content}</div>
+          {cur && cur !== "admin" && cur !== "spectator" && (
+            <div style={{marginTop:8,fontSize:11,color:state.summaryReads?.[cur]?.[s.roundId] ? "#16a34a" : "#94a3b8"}}>
+              {state.summaryReads?.[cur]?.[s.roundId] ? "✓ Read" : "Unread"}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function PastChampionsPage({onBack}) {
+  const champs = [
+    { year: "2022", name: "Luke Abi-Hanna", line: "Set the original benchmark and immediately started negotiating appearance fees. He makes the long flight back from Dubai to try and clinch another win." },
+    { year: "2023", name: "Cam Green", line: "Won with the calm of a monk and the confidence of a bloke who never misses a slider." },
+    { year: "2024", name: "Cam Green", line: "Back-to-back. Historians call it a dynasty; rivals call it textbook burglar behaviour with that handicap." },
+    { year: "2025", name: "Cam Clark", line: "Went absolutely ice cold in the playoff and closed like a man with Antarctic veins." },
+  ];
+  return (
+    <div>
+      <button onClick={onBack} style={S.backBtn}>← Info</button>
+      <h2 style={S.sectTitle}>Past Champions</h2>
+      <p style={{fontSize:12,color:"#64748b",lineHeight:1.5,marginBottom:12}}>Their names are etched into Spinners history — and into the jacket — for all eternity (or at least until someone nicks it).</p>
+      {champs.map(c => (
+        <div key={c.year} style={{...S.card,borderLeft:"3px solid #ca8a04",background:"#fffdf5"}}>
+          <div style={{fontSize:10,textTransform:"uppercase",letterSpacing:0.8,fontWeight:700,color:"#a16207"}}>{c.year}</div>
+          <div style={{fontSize:17,fontWeight:800,color:"#1e293b",fontFamily:"'Playfair Display',serif",marginTop:2}}>{c.name}</div>
+          <div style={{fontSize:13,color:"#475569",lineHeight:1.6,marginTop:6}}>{c.line}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Players ─────────────────────────────────────────────────
 function PlayersPage({state,upd,isAdmin,live}){
+  const [isGeneratingSummary,setIsGeneratingSummary]=useState(false);
   const [confirmReset,setConfirmReset]=useState(false);
   const teams = [
     { label:"Team Yellow", team:"blue", color:"#D4A017", border:"#D4A017" },
@@ -1775,6 +1980,46 @@ function PlayersPage({state,upd,isAdmin,live}){
               </div>
             );
           })}
+        </div>
+      )}
+
+      {isAdmin && (
+        <div style={{padding:"14px 16px",background:"#eef6ff",borderRadius:12,border:"1px solid #bfdbfe",marginBottom:16}}>
+          <div style={{fontSize:14,fontWeight:700,color:"#1e3a8a",marginBottom:8}}>🧠 Daily Summary Release</div>
+          <div style={{fontSize:11,color:"#1e40af",marginBottom:10}}>Release a round summary after all 12 scores are submitted. It uses round results + leaderboard + LD/NTP to generate banter.</div>
+          {ROUNDS.map(round => {
+            const done = isRoundFullySubmitted(state, round.id);
+            const released = !!state.dailySummaries?.[round.id];
+            return (
+              <div key={`summary_${round.id}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8,paddingBottom:8,borderBottom:"1px dashed #bfdbfe"}}>
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>Round {round.num} · {round.courseName}</div>
+                  <div style={{fontSize:10,color:done?"#15803d":"#b45309"}}>{done ? "All scores submitted" : "Waiting for score submissions"}</div>
+                </div>
+                <button
+                  disabled={!done || isGeneratingSummary}
+                  onClick={async ()=>{
+                    setIsGeneratingSummary(true);
+                    const summary = await generateRoundSummary(state, round.id);
+                    setIsGeneratingSummary(false);
+                    if (!summary) return;
+                    upd(s => {
+                      if (!s.dailySummaries) s.dailySummaries = {};
+                      if (!s.summaryReads) s.summaryReads = {};
+                      s.dailySummaries[round.id] = summary;
+                      PLAYERS.forEach(p => {
+                        if (!s.summaryReads[p.id]) s.summaryReads[p.id] = {};
+                        s.summaryReads[p.id][round.id] = false;
+                      });
+                    });
+                  }}
+                  style={{padding:"7px 12px",borderRadius:8,border:"none",background:released?"#0f766e":"#2563eb",color:"#fff",fontSize:12,fontWeight:700,cursor:(!done || isGeneratingSummary)?"not-allowed":"pointer",opacity:(!done || isGeneratingSummary)?0.45:1}}>
+                  {isGeneratingSummary ? "Generating..." : released ? "Re-release Summary" : "Release Summary"}
+                </button>
+              </div>
+            );
+          })}
+          <div style={{fontSize:10,color:"#334155"}}>Tip: add your key in browser localStorage as <code>spinners-llm-api-key</code> for live AI output. Otherwise, app generates a local fallback summary.</div>
         </div>
       )}
 
@@ -1945,4 +2190,3 @@ const S = {
   td:{padding:"6px 3px",textAlign:"center",borderBottom:"1px solid #f1f5f9",fontSize:11},
   tblIn:{width:28,height:22,borderRadius:4,border:"1px solid #d1d5db",textAlign:"center",fontSize:11,fontWeight:600,color:"#1e293b",outline:"none",WebkitAppearance:"none",MozAppearance:"textfield"},
 };
-
