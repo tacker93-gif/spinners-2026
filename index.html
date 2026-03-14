@@ -17,5 +17,16 @@
 <body>
   <div id="root"></div>
   <script type="text/babel" src="app.jsx"></script>
+  <script type="text/babel">
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    const mountApp = () => {
+      if (typeof App === 'function') {
+        root.render(React.createElement(App));
+      } else {
+        window.setTimeout(mountApp, 10);
+      }
+    };
+    mountApp();
+  </script>
 </body>
 </html>

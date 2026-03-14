@@ -657,6 +657,25 @@ function CupScreen({state,onMatch,live}){
   const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
 
   const blockFill=(points,idx)=>clamp(points-idx,0,1);
+  const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+  const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+
+  const blockFill=(points,idx)=>clamp(points-idx,0,1);
+  const segStep=0.5;
+  const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
+  const fmt=n=>n%1===0?n:n.toFixed(1);
+  const showLiveTotals=live&&(bLive>0||gLive>0);
+
+  const statusSeg=(side,segVal)=>{
+    const official=side==="blue"?bT:gT;
+    const interim=side==="blue"?bInterim:gInterim;
+    const dark=side==="blue"?"#D4A017":"#B91C1C";
+    const light=side==="blue"?"#F6DB86":"#FCA5A5";
+    if(segVal<=official) return dark;
+    if(segVal<=interim) return light;
+    return "#e5e7eb";
+  };
 
   return(
     <div>
