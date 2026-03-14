@@ -498,21 +498,24 @@ function getRating(course, teeKey) { return course.teeData[teeKey]?.rating || 72
 function getTeeLabel(course, teeKey) { return course.teeData[teeKey]?.label || "White"; }
 function getM(hole, teeKey) { return teeKey === "blue" ? hole.b : hole.w; }
 function App() {
-  const [state,setState]=useState(null);
-  const [loading,setLoading]=useState(true);
+  const [state,setState]=useState(()=>DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
   const [cur,setCur]=useState(null);
   const [tab,setTab]=useState("cup");
   const [sub,setSub]=useState(null);
 
-  useEffect(()=>{load().then(s=>{setState(s||DC(DEFAULT_STATE));setLoading(false);});},[]);
+  useEffect(()=>{
+    let alive=true;
+    load().then(s=>{if(alive&&s)setState(s);});
+    return ()=>{alive=false;};
+  },[]);
   useEffect(()=>{
     if(!cur) return;
     load().then(s=>{if(s)setState(s);});
   },[cur,tab,sub]);
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
-  if(loading||!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
+  if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
   if(!cur) return <PlayerSelect state={state} onSelect={id=>{setCur(id);setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
@@ -693,7 +696,6 @@ function CupScreen({state,onMatch,live}){
         {live ? (
           <div style={{position:"relative",paddingTop:18}}>
             <div style={{display:"flex",gap:3,alignItems:"center"}}>
-            <div style={{display:"grid",gridTemplateColumns:"repeat(9,minmax(0,1fr))",gap:3,alignItems:"center"}}>
               {blocks.map(i=>{
                 const rightIdx=(totalPoints-1)-i;
                 const yOfficial=blockFill(bT,i);
@@ -702,22 +704,11 @@ function CupScreen({state,onMatch,live}){
                 const rInterim=blockFill(gInterim,rightIdx);
                 return (
                   <div key={i} style={{position:"relative",flex:1,height:11,borderRadius:3,background:"#e5e7eb",overflow:"hidden"}}>
-                  <div key={i} style={{position:"relative",height:11,borderRadius:3,background:"#e5e7eb",overflow:"hidden"}}>
                     {yOfficial>0&&<div style={{position:"absolute",left:0,top:0,bottom:0,width:`${yOfficial*100}%`,background:"#D4A017"}}/>}
                     {yInterim>yOfficial&&<div style={{position:"absolute",left:`${yOfficial*100}%`,top:0,bottom:0,width:`${(yInterim-yOfficial)*100}%`,background:"#F6DB86"}}/>}
                     {rOfficial>0&&<div style={{position:"absolute",right:0,top:0,bottom:0,width:`${rOfficial*100}%`,background:"#B91C1C"}}/>}
                     {rInterim>rOfficial&&<div style={{position:"absolute",right:`${rOfficial*100}%`,top:0,bottom:0,width:`${(rInterim-rOfficial)*100}%`,background:"#FCA5A5"}}/>}
                   </div>
-            <div style={{display:"flex",gap:3,alignItems:"center"}}>
-              {segments.map(seg=>{
-                const segVal=seg*segStep;
-                const leftColor=statusSeg("blue",segVal);
-                const rightColor=statusSeg("grey",segVal);
-                return (
-                  <React.Fragment key={segVal}>
-                    <div style={{height:11,flex:1,borderRadius:3,background:leftColor,transition:"background-color 0.35s"}}/>
-                    <div style={{height:11,flex:1,borderRadius:3,background:rightColor,transition:"background-color 0.35s"}}/>
-                  </React.Fragment>
                 );
               })}
             </div>
@@ -1886,3 +1877,9 @@ const S = {
   td:{padding:"6px 3px",textAlign:"center",borderBottom:"1px solid #f1f5f9",fontSize:11},
   tblIn:{width:28,height:22,borderRadius:4,border:"1px solid #d1d5db",textAlign:"center",fontSize:11,fontWeight:600,color:"#1e293b",outline:"none",WebkitAppearance:"none",MozAppearance:"textfield"},
 };
+
+
+const rootEl = document.getElementById("root");
+if (rootEl) {
+  ReactDOM.createRoot(rootEl).render(React.createElement(App));
+}
