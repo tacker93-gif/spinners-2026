@@ -1910,7 +1910,7 @@ function SummaryHubPage({state,cur,onBack}) {
 
 function PastChampionsPage({onBack}) {
   const champs = [
-    { year: "2022", name: "Luke Abi-Hanna", line: "Set the original benchmark and immediately started negotiating appearance fees." },
+    { year: "2022", name: "Luke Abi-Hanna", line: "Set the original benchmark and immediately started negotiating appearance fees. He makes the long flight back from Dubai to try and clinch another win." },
     { year: "2023", name: "Cam Green", line: "Won with the calm of a monk and the confidence of a bloke who never misses a slider." },
     { year: "2024", name: "Cam Green", line: "Back-to-back. Historians call it a dynasty; rivals call it textbook burglar behaviour with that handicap." },
     { year: "2025", name: "Cam Clark", line: "Went absolutely ice cold in the playoff and closed like a man with Antarctic veins." },
