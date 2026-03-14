@@ -55,6 +55,7 @@ async function save(s) {
 }
 
 const SK = "spinners-cup-2026-v6";
+const PLAYER_LOCK_KEY = "spinners-cup-2026-player-lock";
 const ADMIN_CODE = "admin2026";
 const LOGO = "./public/Artboard 1.png";
 
@@ -500,6 +501,7 @@ function getM(hole, teeKey) { return teeKey === "blue" ? hole.b : hole.w; }
 function App() {
   const [state,setState]=useState(()=>DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
+  const [isSpectator,setIsSpectator]=useState(false);
   const [cur,setCur]=useState(null);
   const [tab,setTab]=useState("cup");
   const [sub,setSub]=useState(null);
@@ -510,39 +512,48 @@ function App() {
     return ()=>{alive=false;};
   },[]);
   useEffect(()=>{
+    const lockedId = localStorage.getItem(PLAYER_LOCK_KEY);
+    if (lockedId && PLAYERS.some(p => p.id === lockedId)) {
+      setCur(lockedId);
+      setTab("cup");
+      setSub(null);
+    }
+  },[]);
+  useEffect(()=>{
     if(!cur) return;
     load().then(s=>{if(s)setState(s);});
   },[cur,tab,sub]);
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
-  if(!cur) return <PlayerSelect state={state} onSelect={id=>{setCur(id);setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setCur("admin");setTab("cup");setSub(null);}}} />;
+  if(!cur) return <PlayerSelect state={state} lockedPlayerId={localStorage.getItem(PLAYER_LOCK_KEY)} onSelect={id=>{const lockedId=localStorage.getItem(PLAYER_LOCK_KEY);if(lockedId&&lockedId!==id)return; if(!lockedId)localStorage.setItem(PLAYER_LOCK_KEY,id);setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
 
   return (
     <div style={S.app}>
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":getP(cur)?.short} playerId={isAdmin?null:cur} onBack={()=>{setCur(null);setIsAdmin(false);}}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
         {tab==="scores"&&!sub&&(live?<ScoresList state={state} cur={cur} isAdmin={isAdmin} onSelect={(r,p)=>setSub({t:"sc",r,p})}/>:<LockedPage title="Scoring" msg="Scoring will open when the event goes live." icon="⛳"/>)}
         {tab==="scores"&&sub?.t==="sc"&&<ScoreEntry state={state} upd={upd} roundId={sub.r} playerId={sub.p||cur} isAdmin={isAdmin} cur={cur} onBack={()=>setSub(null)}/>}
         {tab==="leaders"&&!sub&&<LeaderList onSelect={id=>setSub({t:"lb",id})}/>}
-        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} onBack={()=>setSub(null)} onOpenMatch={(roundId,matchId)=>{setTab("cup");setSub({t:"m",id:matchId,roundId});}}/>}
+        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} live={live} onBack={()=>setSub(null)} onOpenMatch={(roundId,matchId)=>{setTab("cup");setSub({t:"m",id:matchId,roundId});}}/>}
         {tab==="schedule"&&!sub&&<ScheduleMenu onSelect={id=>setSub({t:"sched",id})}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="matches"&&(live?<MatchSchedule onBack={()=>setSub(null)}/>:<LockedMessage title="Match Schedule" msg="The match schedule and team draw will be revealed on game day. Stay tuned! 🏌️" onBack={()=>setSub(null)}/>)}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="trip"&&<TripSchedule onBack={()=>setSub(null)}/>}
+        {tab==="schedule"&&sub?.t==="sched"&&sub.id==="pkrooms"&&<PkRoomsPage onBack={()=>setSub(null)}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="rules"&&<RulesPage onBack={()=>setSub(null)}/>}
         {tab==="players"&&<PlayersPage state={state} upd={upd} isAdmin={isAdmin} live={live}/>}
       </div>
-      <NavBar tab={tab} onTab={t=>{setTab(t);setSub(null);}}/>
+      <NavBar tab={tab} isSpectator={isSpectator} onTab={t=>{setTab(t);setSub(null);}}/>
     </div>
   );
 }
 
-function PlayerSelect({state,onSelect,onAdmin}){
+function PlayerSelect({state,lockedPlayerId,onSelect,onSpectator,onAdmin}){
   const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);
   const live = !!state?.eventLive;
   // Shuffle player order when not live so teams can't be guessed from ordering
@@ -560,47 +571,53 @@ function PlayerSelect({state,onSelect,onAdmin}){
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:800,color:"#1a2e1a",margin:"0 0 4px"}}>Spinners Cup 2026</h1>
           <p style={{fontSize:13,color:"#6b8a6e",margin:0}}>Mornington Peninsula · March 27–29</p>
         </div>
-        <p style={{fontSize:13,color:"#64748b",marginBottom:12,textAlign:"center"}}>Select your name:</p>
+        <p style={{fontSize:13,color:"#64748b",marginBottom:12,textAlign:"center"}}>{lockedPlayerId?"This device is locked to one player.":"Select your name:"}</p>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:12}}>
+          {!showA?(<button onClick={()=>setShowA(true)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:8,padding:"8px 16px",color:"#94a3b8",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔒 Admin</button>):(
+            <div style={{display:"flex",gap:8,gridColumn:"span 2"}}>
+              <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
+              <button onClick={()=>{if(code===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:13}}>Go</button>
+            </div>
+          )}
+          <button onClick={onSpectator} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:8,padding:"8px 16px",background:"#fff",color:"#475569",fontSize:12,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>👀 Spectator</button>
+        </div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:20}}>
           {displayPlayers.map(p=>(
-            <button key={p.id} onClick={()=>onSelect(p.id)} style={{padding:"10px",borderRadius:10,border:"1px solid #e2e8f0",borderLeft:`3px solid ${live?(p.team==="blue"?"#D4A017":"#DC2626"):"#e2e8f0"}`,background:"#fff",fontSize:12,fontWeight:600,color:"#1e293b",cursor:"pointer",textAlign:"left",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",gap:8}}>
+            <button key={p.id} disabled={!!lockedPlayerId&&lockedPlayerId!==p.id} onClick={()=>onSelect(p.id)} style={{padding:"10px",borderRadius:10,border:"1px solid #e2e8f0",borderLeft:`3px solid ${live?(p.team==="blue"?"#D4A017":"#DC2626"):"#e2e8f0"}`,background:"#fff",fontSize:12,fontWeight:600,color:"#1e293b",cursor:!!lockedPlayerId&&lockedPlayerId!==p.id?"not-allowed":"pointer",opacity:!!lockedPlayerId&&lockedPlayerId!==p.id?0.45:1,textAlign:"left",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",gap:8}}>
               <PlayerAvatar id={p.id} size={42} live={live} />
               {p.name}
             </button>
           ))}
         </div>
-        {!showA?(<button onClick={()=>setShowA(true)} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:8,padding:"8px 16px",color:"#94a3b8",fontSize:12,cursor:"pointer",margin:"0 auto",fontFamily:"'DM Sans',sans-serif"}}>🔒 Admin</button>):(
-          <div style={{display:"flex",gap:8}}>
-            <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
-            <button onClick={()=>{if(code===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"8px 16px",borderRadius:8,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:600,cursor:"pointer",fontSize:13}}>Go</button>
-          </div>
-        )}
+        {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
         {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>Incorrect code</p>}
       </div>
     </div>
   );
 }
 
-function Header({isAdmin,name,playerId,onBack}){
+function Header({isAdmin,name,playerId,live,onBack}){
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="m15 18-6-6 6-6"/></svg>
       </button>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"center",flex:1,gap:8}}>
-        <img src={LOGO} alt="" style={{width:88,height:88,objectFit:"contain"}} />
+      <div style={{display:"flex",alignItems:"center",justifyContent:"center",flex:1}}>
+        <div style={{width:72,display:"flex",justifyContent:"center"}}><img src={LOGO} alt="" style={{width:64,height:64,objectFit:"contain"}} /></div>
         <div style={{textAlign:"center"}}>
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
         </div>
+        <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={28} live={live} border={false} /> : <div style={{width:28}} />}</div>
       </div>
-      <div style={{width:28,display:"flex",justifyContent:"flex-end"}}>{playerId ? <PlayerAvatar id={playerId} size={28} live={true} border={false} /> : null}</div>
     </div>
   );
 }
 
-function NavBar({tab,onTab}){
-  const items=[{k:"cup",l:"Cup",e:"🏆"},{k:"scores",l:"Scores",e:"⛳"},{k:"leaders",l:"Leaders",e:"📊"},{k:"schedule",l:"Info",e:"📋"},{k:"players",l:"Players",e:"👥"}];
+function NavBar({tab,isSpectator,onTab}){
+  const items=isSpectator
+    ? [{k:"cup",l:"Cup",e:"🏆"},{k:"leaders",l:"Leaders",e:"📊"},{k:"players",l:"Players",e:"👥"}]
+    : [{k:"cup",l:"Cup",e:"🏆"},{k:"scores",l:"Scores",e:"⛳"},{k:"leaders",l:"Leaders",e:"📊"},{k:"schedule",l:"Info",e:"📋"},{k:"players",l:"Players",e:"👥"}];
   return(
     <div style={S.nav}>
       {items.map(({k,l,e})=>(
@@ -1292,7 +1309,7 @@ function LeaderList({onSelect}){
   return(<div><h2 style={S.sectTitle}>Leaderboards</h2>{cats.map(c=>(<button key={c.id} onClick={()=>onSelect(c.id)} style={S.card}><div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{c.name}</div><div style={{fontSize:11,color:"#94a3b8"}}>{c.desc}</div></button>))}</div>);
 }
 
-function LeaderView({state,catId,onBack,onOpenMatch}){
+function LeaderView({state,catId,live,onBack,onOpenMatch}){
   if(catId==="ntp"||catId==="ld"){
     return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{catId==="ntp"?"📍 Nearest the Pin":"💪 Longest Drive"}</h2>
       {ROUNDS.map(round=>{
@@ -1300,7 +1317,7 @@ function LeaderView({state,catId,onBack,onOpenMatch}){
         const key=`${round.id}_${catId}`;
         const wId=catId==="ntp"?state.ntpWinners?.[key]:state.ldWinners?.[key];
         const w=wId?getP(wId):null;
-        return(<div key={round.id} style={{...S.card,borderLeft:`3px solid ${w?"#16a34a":"#e2e8f0"}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>Round {round.num} — Hole {hn}</div><div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}>{w && <PlayerAvatar id={w.id} size={24} live={true} />}<div style={{fontSize:14,fontWeight:700,color:w?"#1e293b":"#d1d5db"}}>{w?.name||"TBD"}</div></div></div></div>);
+        return(<div key={round.id} style={{...S.card,borderLeft:`3px solid ${w?"#16a34a":"#e2e8f0"}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1e293b"}}>Round {round.num} — Hole {hn}</div><div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div></div><div style={{display:"flex",alignItems:"center",gap:8}}>{w && <PlayerAvatar id={w.id} size={24} live={live} />}<div style={{fontSize:14,fontWeight:700,color:w?"#1e293b":"#d1d5db"}}>{w?.name||"TBD"}</div></div></div></div>);
       })}
     </div>);
   }
@@ -1345,11 +1362,11 @@ function LeaderView({state,catId,onBack,onOpenMatch}){
         <div style={{width:24,fontSize:i<3?16:13,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
         {r.id && r.id.includes("_") ? (
           <div style={{display:"flex",alignItems:"center",marginRight:2}}>
-            <PlayerAvatar id={r.id.split("_")[0]} size={24} live={true} />
-            <div style={{marginLeft:-8}}><PlayerAvatar id={r.id.split("_")[1]} size={24} live={true} /></div>
+            <PlayerAvatar id={r.id.split("_")[0]} size={24} live={live} />
+            <div style={{marginLeft:-8}}><PlayerAvatar id={r.id.split("_")[1]} size={24} live={live} /></div>
           </div>
         ) : (
-          <PlayerAvatar id={r.id} size={28} live={true} />
+          <PlayerAvatar id={r.id} size={28} live={live} />
         )}
         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{r.name} {r.id && !r.id.includes("_") ? chulliganBadges(getChulliganCount(state,r.roundId||"",r.id)) : (r.chCount?chulliganBadges(r.chCount):"")}</div></div>
         <div style={{textAlign:"right"}}>
@@ -1381,6 +1398,13 @@ function ScheduleMenu({onSelect}){
         <div>
           <div style={{fontSize:15,fontWeight:700,color:"#1e293b"}}>Trip Itinerary</div>
           <div style={{fontSize:12,color:"#94a3b8"}}>Full trip schedule from Thursday to Sunday</div>
+        </div>
+      </button>
+      <button onClick={()=>onSelect("pkrooms")} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
+        <span style={{fontSize:28}}>🏨</span>
+        <div>
+          <div style={{fontSize:15,fontWeight:700,color:"#1e293b"}}>PK Rooms</div>
+          <div style={{fontSize:12,color:"#94a3b8"}}>Peninsula Kingswood room allocations</div>
         </div>
       </button>
       <button onClick={()=>onSelect("rules")} style={{...S.card,display:"flex",alignItems:"center",gap:12,padding:"16px"}}>
@@ -1437,7 +1461,7 @@ function TripSchedule({onBack}){
         { time: "6:00am", text: "Thursday golfers flight to Melbourne" },
         { time: "12:30pm", text: "Warm-up round at The Dunes Golf Course" },
         { time: "After golf", text: "Check-in at AirBnB, St Andrews Beach" },
-        { time: "Evening", text: "Dinner — TBC" },
+        { time: "Evening", text: "Dinner — Portsea Hotel" },
       ],
     },
     {
@@ -1470,6 +1494,7 @@ function TripSchedule({onBack}){
         { time: "7:30am", text: "Check-out of rooms" },
         { time: "7:30am", text: "Breakfast at PK Clubhouse (included in room rate)" },
         { time: "8:25am", text: "Round 3 — PK North Course", highlight: true },
+        { time: "1:00pm", text: "Jacket Presentation 🧥", highlight: true },
         { time: "~2:30pm", text: "Depart for Melbourne Airport ✈️" },
       ],
     },
@@ -1525,10 +1550,18 @@ function TripSchedule({onBack}){
           <div>👔 <strong>PK Dress Code:</strong> Collared shirt, tailored shorts/pants, soft spikes</div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* PK Room Assignments */}
-      <div style={{padding:"14px",background:"#fff",borderRadius:12,marginTop:12,border:"1px solid #e2e8f0"}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:10}}>🏨 PK Room Assignments — Saturday Night</div>
+function PkRoomsPage({onBack}){
+  return (
+    <div>
+      <button onClick={onBack} style={S.backBtn}>← Info</button>
+      <h2 style={S.sectTitle}>PK Rooms</h2>
+      <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>Saturday night accommodation at Peninsula Kingswood.</p>
+      <div style={{padding:"14px",background:"#fff",borderRadius:12,border:"1px solid #e2e8f0"}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#1e293b",marginBottom:10}}>🏨 PK Room Assignments</div>
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {PK_ROOMS.map((r,i) => (
             <div key={i} style={{display:"flex",alignItems:"center",padding:"8px 10px",background:"#f8faf8",borderRadius:8,border:"1px solid #e2e8f0"}}>
