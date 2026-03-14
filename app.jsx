@@ -257,6 +257,33 @@ const ROUNDS = [
 
 // ─── Helpers ─────────────────────────────────────────────────
 function getP(id) { return PLAYERS.find(p => p.id === id); }
+function formatTeamNames(ids,{showBadges=false,state=null,roundId="",fallback="???"}={}){
+  if(!ids?.length) return [fallback,fallback];
+  return ids.map(id=>{
+    const short=getP(id)?.short||fallback;
+    if(!showBadges||!state||!roundId) return short;
+    const beers=chulliganBadges(getChulliganCount(state,roundId,id));
+    return beers?`${short} ${beers}`:short;
+  });
+}
+
+function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=false,fontSize=12}){
+  const names = live
+    ? formatTeamNames(ids,{showBadges,state,roundId})
+    : ["???","???"];
+  return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:align==="right"?"flex-end":"flex-start",gap:8}}>
+      <div style={{display:"flex",alignItems:"center",marginRight:2,opacity:live?1:0.75}}>
+        <PlayerAvatar id={ids?.[0]} size={24} live={live} />
+        <div style={{marginLeft:-8}}><PlayerAvatar id={ids?.[1]} size={24} live={live} /></div>
+      </div>
+      <div style={{fontSize,fontWeight:600,color,display:"flex",flexDirection:"column",alignItems:align==="right"?"flex-end":"flex-start",lineHeight:1.15,textAlign:align}}>
+        <span>{names[0]}</span>
+        <span>{names[1]}</span>
+      </div>
+    </div>
+  );
+}
 
 function PlayerAvatar({id, size=32, live=true, border=true}) {
   const p = getP(id);
@@ -505,6 +532,7 @@ function App() {
   const [cur,setCur]=useState(null);
   const [tab,setTab]=useState("cup");
   const [sub,setSub]=useState(null);
+  const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
 
   useEffect(()=>{
     let alive=true;
@@ -512,13 +540,12 @@ function App() {
     return ()=>{alive=false;};
   },[]);
   useEffect(()=>{
-    const lockedId = localStorage.getItem(PLAYER_LOCK_KEY);
-    if (lockedId && PLAYERS.some(p => p.id === lockedId)) {
-      setCur(lockedId);
+    if (lockedPlayerId && PLAYERS.some(p => p.id === lockedPlayerId)) {
+      setCur(lockedPlayerId);
       setTab("cup");
       setSub(null);
     }
-  },[]);
+  },[lockedPlayerId]);
   useEffect(()=>{
     if(!cur) return;
     load().then(s=>{if(s)setState(s);});
@@ -526,7 +553,7 @@ function App() {
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
-  if(!cur) return <PlayerSelect state={state} lockedPlayerId={localStorage.getItem(PLAYER_LOCK_KEY)} onSelect={id=>{const lockedId=localStorage.getItem(PLAYER_LOCK_KEY);if(lockedId&&lockedId!==id)return; if(!lockedId)localStorage.setItem(PLAYER_LOCK_KEY,id);setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
+  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
 
@@ -553,7 +580,7 @@ function App() {
   );
 }
 
-function PlayerSelect({state,lockedPlayerId,onSelect,onSpectator,onAdmin}){
+function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectator,onAdmin}){
   const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);
   const live = !!state?.eventLive;
   // Shuffle player order when not live so teams can't be guessed from ordering
@@ -590,6 +617,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onSpectator,onAdmin}){
           ))}
         </div>
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
+        {lockedPlayerId&&showA&&<button onClick={onUnlockSelection} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
         {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>Incorrect code</p>}
       </div>
     </div>
@@ -741,8 +769,6 @@ function CupScreen({state,onMatch,live}){
           </div>
           {round.matches.map((match,mi)=>{
             const res=matchStatus(state,match,round);
-            const bN=live?match.blue.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & "):"??? & ???";
-            const gN=live?match.grey.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & "):"??? & ???";
             let bg="#fff",bdr="#e2e8f0";
             if(live&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
@@ -761,12 +787,12 @@ function CupScreen({state,onMatch,live}){
             return(
               <button key={match.id} onClick={()=>{if(live)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:live?"pointer":"default",opacity:live?1:0.75}}>
                 <div style={{display:"flex",alignItems:"center"}}>
-                  <div style={{flex:1}}><div style={{fontSize:12,fontWeight:600,color:live?"#B8860B":"#94a3b8"}}>{bN}</div></div>
+                  <div style={{flex:1}}><TeamPairDisplay ids={match.blue} live={live} color={live?"#B8860B":"#94a3b8"} state={state} roundId={round.id} showBadges={live} /></div>
                   <div style={{padding:"0 8px",minWidth:70,textAlign:"center"}}>
                     <div style={{fontSize:11,fontWeight:700,color:midCol,fontFamily:"'JetBrains Mono',monospace"}}>{midTxt}</div>
                     {live&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
                   </div>
-                  <div style={{flex:1,textAlign:"right"}}><div style={{fontSize:12,fontWeight:600,color:live?"#B91C1C":"#94a3b8"}}>{gN}</div></div>
+                  <div style={{flex:1,textAlign:"right"}}><TeamPairDisplay ids={match.grey} live={live} color={live?"#B91C1C":"#94a3b8"} align="right" state={state} roundId={round.id} showBadges={live} /></div>
                 </div>
               </button>
             );
@@ -798,9 +824,9 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
       <p style={{fontSize:12,color:"#94a3b8",marginBottom:12}}>{round.courseName} · {round.day}</p>
 
       <div style={{display:"flex",justifyContent:"space-between",marginBottom:16,padding:"10px 14px",background:res.winner==="blue"?"#FFFBEB":res.winner==="grey"?"#FEF2F2":"#f0fdf4",borderRadius:10,border:"1px solid #e2e8f0"}}>
-        <span style={{fontSize:13,fontWeight:700,color:"#B8860B"}}>{match.blue.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & ")}</span>
+        <div><TeamPairDisplay ids={match.blue} live={true} color="#B8860B" state={state} roundId={round.id} showBadges={true} fontSize={13} /></div>
         <span style={{fontSize:13,fontWeight:700,color:res.winner==="blue"?"#B8860B":res.winner==="grey"?"#B91C1C":"#16a34a"}}>{res.status==="ns"?"vs":res.status==="live"?(res.bUp===0?"All Square":res.bUp>0?`Yellow ${res.bUp} Up`:`Red ${Math.abs(res.bUp)} Up`):res.display}</span>
-        <span style={{fontSize:13,fontWeight:700,color:"#B91C1C"}}>{match.grey.map(id=>{const short=getP(id)?.short;const beers=chulliganBadges(getChulliganCount(state,round.id,id));return beers?`${short} ${beers}`:short;}).join(" & ")}</span>
+        <div><TeamPairDisplay ids={match.grey} live={true} color="#B91C1C" align="right" state={state} roundId={round.id} showBadges={true} fontSize={13} /></div>
       </div>
 
       <div style={{overflowX:"auto"}}>
@@ -1351,7 +1377,7 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
         pts+=Math.max(pA,pB);
         if(holeFilled(sA[i]||0)||holeFilled(sB[i]||0)) holes++;
       });
-      pairs.push({id:`${a}_${b}`,name:`${getP(a)?.short} & ${getP(b)?.short}`,team:getP(a)?.team,score:pts,holes,totalHoles:18,roundId:round.id,matchId:findMatchByTeam(round.id,[a,b])?.id,chCount:getChulliganCount(state,round.id,a)+getChulliganCount(state,round.id,b)});
+      pairs.push({id:`${a}_${b}`,topName:getP(a)?.short,bottomName:getP(b)?.short,team:getP(a)?.team,score:pts,holes,totalHoles:18,roundId:round.id,matchId:findMatchByTeam(round.id,[a,b])?.id,chCount:getChulliganCount(state,round.id,a)+getChulliganCount(state,round.id,b)});
     });});
     rankings=pairs.sort((a,b)=>b.score-a.score);
   }
@@ -1368,7 +1394,7 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
         ) : (
           <PlayerAvatar id={r.id} size={28} live={live} />
         )}
-        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b"}}>{r.name} {r.id && !r.id.includes("_") ? chulliganBadges(getChulliganCount(state,r.roundId||"",r.id)) : (r.chCount?chulliganBadges(r.chCount):"")}</div></div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b",display:"flex",flexDirection:"column",lineHeight:1.15}}>{r.id && r.id.includes("_") ? (<><span>{r.topName}</span><span>{r.bottomName} {r.chCount?chulliganBadges(r.chCount):""}</span></>) : (<span>{r.name} {chulliganBadges(getChulliganCount(state,r.roundId||"",r.id))}</span>)}</div></div>
         <div style={{textAlign:"right"}}>
           <div style={{display:"flex",alignItems:"baseline",gap:4,justifyContent:"flex-end"}}>
             <span style={{fontSize:16,fontWeight:700,color:"#2d6a4f",fontFamily:"'JetBrains Mono',monospace"}}>{r.score}</span>
@@ -1438,9 +1464,9 @@ function MatchSchedule({onBack}){
                 <span style={{fontSize:10,color:"#94a3b8"}}>Match {mi+1}</span>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <span style={{fontSize:12,fontWeight:600,color:"#B8860B",flex:1}}>{match.blue.map(id=>getP(id)?.name).join(" & ")}</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#B8860B",flex:1}}><span style={{display:"inline-flex",flexDirection:"column",lineHeight:1.2,alignItems:"flex-start"}}><span>{match.blue.map(id=>getP(id)?.name)[0]}</span><span>{match.blue.map(id=>getP(id)?.name)[1]}</span></span></span>
                 <span style={{fontSize:10,color:"#94a3b8"}}>vs</span>
-                <span style={{fontSize:12,fontWeight:600,color:"#B91C1C",flex:1,textAlign:"right"}}>{match.grey.map(id=>getP(id)?.name).join(" & ")}</span>
+                <span style={{fontSize:12,fontWeight:600,color:"#B91C1C",flex:1,textAlign:"right"}}><span style={{display:"inline-flex",flexDirection:"column",lineHeight:1.2,alignItems:"flex-end"}}><span>{match.grey.map(id=>getP(id)?.name)[0]}</span><span>{match.grey.map(id=>getP(id)?.name)[1]}</span></span></span>
               </div>
             </div>
           ))}
