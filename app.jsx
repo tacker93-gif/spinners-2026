@@ -60,7 +60,7 @@ const ADMIN_CODE = "admin2026";
 const LOGO = "./public/Artboard 1.png";
 const SPONSOR_LOGO = "./AirKelsoBlack.png";
 const BANNER_PHOTO_SIZE = 34;
-const BANNER_LOGO_SIZE = 34;
+const BANNER_LOGO_SIZE = 44;
 const CUP_PHOTO_SIZE = 30;
 const LEADER_PHOTO_SIZE = 30;
 const LEADER_SINGLE_PHOTO_SIZE = 34;
@@ -263,20 +263,13 @@ const ROUNDS = [
 
 // ─── Helpers ─────────────────────────────────────────────────
 function getP(id) { return PLAYERS.find(p => p.id === id); }
-function formatTeamNames(ids,{showBadges=false,state=null,roundId="",fallback="???"}={}){
-  if(!ids?.length) return [fallback,fallback];
-  return ids.map(id=>{
-    const short=getP(id)?.short||fallback;
-    if(!showBadges||!state||!roundId) return short;
-    const beers=chulliganBadges(getChulliganCount(state,roundId,id));
-    return beers?`${short} ${beers}`:short;
-  });
-}
-
 function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=false,fontSize=12}){
   const names = live
-    ? formatTeamNames(ids,{showBadges,state,roundId})
-    : ["???","???"];
+    ? (ids?.length ? ids.map(id => ({
+        short: getP(id)?.short || "???",
+        badges: showBadges && state && roundId ? chulliganBadges(getChulliganCount(state,roundId,id)) : "",
+      })) : [{ short: "???", badges: "" }, { short: "???", badges: "" }])
+    : [{ short: "???", badges: "" }, { short: "???", badges: "" }];
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:align==="right"?"flex-end":"flex-start",gap:8}}>
       <div style={{display:"flex",alignItems:"center",marginRight:2,opacity:live?1:0.75}}>
@@ -284,8 +277,12 @@ function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=f
         <div style={{marginLeft:-10}}><PlayerAvatar id={ids?.[1]} size={CUP_PHOTO_SIZE} live={live} /></div>
       </div>
       <div style={{fontSize,fontWeight:600,color,display:"flex",flexDirection:"column",alignItems:align==="right"?"flex-end":"flex-start",lineHeight:1.15,textAlign:align}}>
-        <span>{names[0]}</span>
-        <span>{names[1]}</span>
+        {names.map((name, idx) => (
+          <span key={`${name.short}_${idx}`} style={{display:"flex",flexDirection:"column",alignItems:align==="right"?"flex-end":"flex-start"}}>
+            <span>{name.short}</span>
+            {name.badges && <span style={{lineHeight:1,marginTop:1}}>{name.badges}</span>}
+          </span>
+        ))}
       </div>
     </div>
   );
@@ -781,7 +778,7 @@ function Header({isAdmin,name,playerId,live,onBack}){
 
 function NavBar({tab,isSpectator,onTab}){
   const items=isSpectator
-    ? [{k:"cup",l:"Cup",e:"🏆"},{k:"leaders",l:"Leaders",e:"📊"},{k:"players",l:"Players",e:"👥"}]
+    ? [{k:"cup",l:"Cup",e:"🏆"},{k:"leaders",l:"Leaders",e:"📊"},{k:"schedule",l:"Info",e:"📋"},{k:"players",l:"Players",e:"👥"}]
     : [{k:"cup",l:"Cup",e:"🏆"},{k:"scores",l:"Scores",e:"⛳"},{k:"leaders",l:"Leaders",e:"📊"},{k:"schedule",l:"Info",e:"📋"},{k:"players",l:"Players",e:"👥"}];
   return(
     <div style={S.nav}>
@@ -1888,7 +1885,6 @@ function SummaryHubPage({state,cur,onBack}) {
     <div>
       <button onClick={onBack} style={S.backBtn}>← Info</button>
       <h2 style={S.sectTitle}>Weekend Banter Summary</h2>
-      <p style={{fontSize:12,color:"#64748b",lineHeight:1.5,marginBottom:12}}>Best location suggestion: a once-only pop-up right after login for newly released rounds, with this page as the permanent archive.</p>
       {summaries.length===0 && <div style={{...S.card,fontSize:13,color:"#64748b"}}>No daily summary released yet. Admin can release once all scores are submitted for a round.</div>}
       {summaries.map(s => (
         <div key={s.roundId} style={{...S.card,borderLeft:"3px solid #2563eb",background:"#f8fbff"}}>
