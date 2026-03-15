@@ -570,19 +570,70 @@ function matchStatus(state, match, round) {
 }
 
 const DEFAULT_STATE = {
-  handicaps:{},
-  scores:{},
-  ntpWinners:{},
-  ldWinners:{},
-  chulligans:{},
-  submitted:{},
+  handicaps:{
+    angus:10,nick:8,tom:6,callum:14,jkelly:15,jturner:9,
+    chris:5,luke:11,alex:12,lach:13,jason:16,cam:7,
+  },
+  scores:{
+    r1:{
+      angus:[5,4,5,3,5,3,5,4,5,4,3,5,6,4,5,4,5,5],
+      nick:[5,4,4,3,4,3,4,4,4,4,3,4,5,4,4,3,5,4],
+      tom:[5,3,5,3,4,2,4,4,4,4,2,5,5,3,4,3,4,4],
+      callum:[6,4,5,4,5,3,5,5,5,5,3,5,6,4,5,4,6,5],
+      jkelly:[5,4,5,3,5,3,4,4,5,5,3,5,6,4,5,4,5,5],
+      jturner:[5,3,4,3,4,2,4,4,4,4,2,4,5,3,4,3,4,4],
+      chris:[4,3,4,2,4,2,4,3,4,3,2,4,5,3,4,3,4,4],
+      luke:[5,4,5,3,5,3,4,4,5,4,3,5,6,4,5,3,5,5],
+      alex:[5,4,5,3,5,3,5,4,4,4,3,5,6,4,5,3,5,4],
+      lach:[5,4,5,3,4,3,4,4,5,4,3,4,5,4,5,3,5,4],
+      jason:[6,4,5,3,5,3,5,4,5,4,3,5,6,4,5,4,6,5],
+      cam:[5,3,4,3,4,2,4,4,4,4,3,4,5,3,4,3,4,4],
+    }
+  },
+  ntpWinners:{r1_ntp:"tom"},
+  ldWinners:{r1_ld:"jturner"},
+  chulligans:{
+    r1:{
+      angus:{front:13,back:null},
+      nick:{front:null,back:14},
+      tom:{front:5,back:13},
+      callum:{front:1,back:null},
+      jkelly:{front:null,back:17},
+      jturner:{front:2,back:15},
+      chris:{front:7,back:10},
+      luke:{front:null,back:11},
+      alex:{front:3,back:null},
+      lach:{front:8,back:16},
+      jason:{front:null,back:12},
+      cam:{front:4,back:14},
+    }
+  },
+  submitted:{
+    r1:{
+      angus:true,nick:true,tom:true,callum:true,jkelly:true,jturner:true,
+      chris:true,luke:true,alex:true,lach:true,jason:true,cam:true,
+    }
+  },
   dailySummaries:{},
   summaryReads:{},
-  eventLive:false,
-  roundScoringLive:{r1:false,r2:false,r3:false},
+  eventLive:true,
+  roundScoringLive:{r1:true,r2:false,r3:false},
   tees:{standrews:"white",pk_south:"white",pk_north:"white"},
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
+
+function withRoundOneSimulationSeed(baseState) {
+  const next = DC(baseState || {});
+  next.handicaps = { ...next.handicaps, ...DC(DEFAULT_STATE.handicaps) };
+  next.scores = { ...next.scores, r1: DC(DEFAULT_STATE.scores.r1) };
+  next.ntpWinners = { ...next.ntpWinners, ...DC(DEFAULT_STATE.ntpWinners) };
+  next.ldWinners = { ...next.ldWinners, ...DC(DEFAULT_STATE.ldWinners) };
+  next.chulligans = { ...next.chulligans, r1: DC(DEFAULT_STATE.chulligans.r1) };
+  next.submitted = { ...next.submitted, r1: DC(DEFAULT_STATE.submitted.r1) };
+  next.eventLive = true;
+  next.roundScoringLive = { ...(next.roundScoringLive || {}), r1:true, r2:false, r3:false };
+  return next;
+}
 
 function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
@@ -704,7 +755,7 @@ function App() {
 
   useEffect(()=>{
     let alive=true;
-    load().then(s=>{if(alive&&s)setState(s);});
+    load().then(s=>{if(alive&&s)setState(withRoundOneSimulationSeed(s));});
     return ()=>{alive=false;};
   },[]);
   useEffect(()=>{
@@ -716,7 +767,7 @@ function App() {
   },[lockedPlayerId]);
   useEffect(()=>{
     if(!cur) return;
-    load().then(s=>{if(s)setState(s);});
+    load().then(s=>{if(s)setState(withRoundOneSimulationSeed(s));});
   },[cur,tab,sub]);
 
   useEffect(() => {
