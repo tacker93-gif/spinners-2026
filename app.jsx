@@ -936,7 +936,9 @@ function CupScreen({state,onMatch,live,isAdmin}){
         )}
       </div>
 
-      {ROUNDS.map(round=>(
+      {ROUNDS.map(round=>{
+        const roundRevealed = isRoundRevealed(state,round.id,live,isAdmin);
+        return (
         <div key={round.id} style={{marginBottom:20}}>
           <div style={{marginBottom:8}}>
             <div style={{fontSize:13,fontWeight:700,color:"#1a2e1a"}}>{round.day}</div>
@@ -951,30 +953,31 @@ function CupScreen({state,onMatch,live,isAdmin}){
           <>
           {round.matches.map((match,mi)=>{
             const res=matchStatus(state,match,round);
+            const showMatchDetails = live && roundRevealed;
             let bg="#fff",bdr="#e2e8f0";
-            if(live&&(res.status==="done"||res.status==="live")){
+            if(showMatchDetails&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
               if(ahead==="blue"||res.winner==="blue"){bg="#FFFBEB";bdr="#FDE68A";}
               else if(ahead==="grey"||res.winner==="grey"){bg="#FEF2F2";bdr="#FECACA";}
               else{bg="#f0fdf4";bdr="#86efac";}
             }
             let midTxt="vs",midCol="#94a3b8";
-            if(live&&res.status==="live"){
+            if(showMatchDetails&&res.status==="live"){
               midTxt=res.bUp===0?"All Square":`${Math.abs(res.bUp)} Up`;
               midCol=res.bUp>0?"#B8860B":res.bUp<0?"#B91C1C":"#16a34a";
-            } else if(live&&res.status==="done"){
+            } else if(showMatchDetails&&res.status==="done"){
               midTxt=res.display;
               midCol=res.winner==="blue"?"#B8860B":res.winner==="grey"?"#B91C1C":"#16a34a";
             }
             return(
-              <button key={match.id} onClick={()=>{if(live)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:live?"pointer":"default",opacity:live?1:0.75}}>
+              <button key={match.id} onClick={()=>{if(showMatchDetails)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:showMatchDetails?"pointer":"default",opacity:showMatchDetails?1:0.75}}>
                 <div style={{display:"flex",alignItems:"center"}}>
-                  <div style={{flex:1}}><TeamPairDisplay ids={match.blue} live={live} color={live?"#B8860B":"#94a3b8"} state={state} roundId={round.id} showBadges={live} /></div>
+                  <div style={{flex:1}}><TeamPairDisplay ids={match.blue} live={showMatchDetails} color={showMatchDetails?"#B8860B":"#94a3b8"} state={state} roundId={round.id} showBadges={showMatchDetails} /></div>
                   <div style={{padding:"0 8px",minWidth:70,textAlign:"center"}}>
                     <div style={{fontSize:11,fontWeight:700,color:midCol,fontFamily:"'JetBrains Mono',monospace"}}>{midTxt}</div>
-                    {live&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
+                    {showMatchDetails&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
                   </div>
-                  <div style={{flex:1,textAlign:"right"}}><TeamPairDisplay ids={match.grey} live={live} color={live?"#B91C1C":"#94a3b8"} align="right" state={state} roundId={round.id} showBadges={live} /></div>
+                  <div style={{flex:1,textAlign:"right"}}><TeamPairDisplay ids={match.grey} live={showMatchDetails} color={showMatchDetails?"#B91C1C":"#94a3b8"} align="right" state={state} roundId={round.id} showBadges={showMatchDetails} /></div>
                 </div>
               </button>
             );
@@ -982,7 +985,7 @@ function CupScreen({state,onMatch,live,isAdmin}){
           </>
           )}
         </div>
-      ))}
+      );})}
     </div>
   );
 }
