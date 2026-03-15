@@ -622,6 +622,19 @@ const DEFAULT_STATE = {
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
 
+function withRoundOneSimulationSeed(baseState) {
+  const next = DC(baseState || {});
+  next.handicaps = { ...next.handicaps, ...DC(DEFAULT_STATE.handicaps) };
+  next.scores = { ...next.scores, r1: DC(DEFAULT_STATE.scores.r1) };
+  next.ntpWinners = { ...next.ntpWinners, ...DC(DEFAULT_STATE.ntpWinners) };
+  next.ldWinners = { ...next.ldWinners, ...DC(DEFAULT_STATE.ldWinners) };
+  next.chulligans = { ...next.chulligans, r1: DC(DEFAULT_STATE.chulligans.r1) };
+  next.submitted = { ...next.submitted, r1: DC(DEFAULT_STATE.submitted.r1) };
+  next.eventLive = true;
+  next.roundScoringLive = { ...(next.roundScoringLive || {}), r1:true, r2:false, r3:false };
+  return next;
+}
+
 function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
 }
@@ -742,7 +755,7 @@ function App() {
 
   useEffect(()=>{
     let alive=true;
-    load().then(s=>{if(alive&&s)setState(s);});
+    load().then(s=>{if(alive&&s)setState(withRoundOneSimulationSeed(s));});
     return ()=>{alive=false;};
   },[]);
   useEffect(()=>{
@@ -754,7 +767,7 @@ function App() {
   },[lockedPlayerId]);
   useEffect(()=>{
     if(!cur) return;
-    load().then(s=>{if(s)setState(s);});
+    load().then(s=>{if(s)setState(withRoundOneSimulationSeed(s));});
   },[cur,tab,sub]);
 
   useEffect(() => {
