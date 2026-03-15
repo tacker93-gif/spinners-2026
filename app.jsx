@@ -1961,6 +1961,8 @@ function PlayersPage({state,upd,isAdmin,live}){
   const [isGeneratingSummary,setIsGeneratingSummary]=useState(false);
   const [confirmReset,setConfirmReset]=useState(false);
   const [selectedBio, setSelectedBio] = useState(null);
+  const selectedBioImage = selectedBio ? (PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]) : null;
+  const selectedBioHasHighResImage = selectedBio ? !!PLAYER_BIO_IMAGES[selectedBio] : false;
   const teams = [
     { label:"Team Yellow", team:"blue", color:"#D4A017", border:"#D4A017" },
     { label:"Team Red", team:"grey", color:"#B91C1C", border:"#DC2626" },
