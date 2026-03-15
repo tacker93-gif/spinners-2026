@@ -681,6 +681,74 @@ function getOverallLeaderboard(state) {
   }).sort((a,b)=>b.total-a.total);
 }
 
+function getRoundTrendStats(state, round) {
+  const course = getCourse(round.courseId);
+  const playerStats = PLAYERS.map(player => {
+    const scores = state.scores?.[round.id]?.[player.id] || [];
+    const dailyHcp = courseHcp(state.handicaps?.[player.id], course, getTeeKey(state, course.id));
+    let birdies = 0;
+    let wipes = 0;
+    let wipeRun = 0;
+    let maxWipeRun = 0;
+    let bogeyRun = 0;
+    let worstBogeyRun = 0;
+    const netDiffs = [];
+
+    course.holes.forEach((hole, index) => {
+      const gross = scores[index] ?? 0;
+      if (!holeFilled(gross)) {
+        wipeRun = 0;
+        bogeyRun = 0;
+        return;
+      }
+
+      if (gross === -1) {
+        wipes += 1;
+        wipeRun += 1;
+        maxWipeRun = Math.max(maxWipeRun, wipeRun);
+        bogeyRun += 1;
+        worstBogeyRun = Math.max(worstBogeyRun, bogeyRun);
+        netDiffs.push(5);
+        return;
+      }
+
+      wipeRun = 0;
+      const net = gross - hStrokes(dailyHcp, hole);
+      const diff = net - hole.par;
+      netDiffs.push(diff);
+
+      if (gross < hole.par) birdies += 1;
+      if (diff >= 1) {
+        bogeyRun += 1;
+        worstBogeyRun = Math.max(worstBogeyRun, bogeyRun);
+      } else {
+        bogeyRun = 0;
+      }
+    });
+
+    let worstStretch = null;
+    for (let i = 0; i <= netDiffs.length - 3; i += 1) {
+      const window = netDiffs.slice(i, i + 3);
+      if (window.length < 3) continue;
+      const total = window.reduce((a, b) => a + b, 0);
+      if (!worstStretch || total > worstStretch.total) {
+        worstStretch = { total, startHole: i + 1, endHole: i + 3 };
+      }
+    }
+
+    return { player, birdies, wipes, maxWipeRun, worstBogeyRun, worstStretch };
+  });
+
+  const mostBirdies = [...playerStats].sort((a, b) => b.birdies - a.birdies)[0];
+  const mostWipes = [...playerStats].sort((a, b) => b.wipes - a.wipes)[0];
+  const worstBogeyRun = [...playerStats].sort((a, b) => b.worstBogeyRun - a.worstBogeyRun)[0];
+  const worstStretch = [...playerStats]
+    .filter(p => p.worstStretch)
+    .sort((a, b) => b.worstStretch.total - a.worstStretch.total)[0];
+
+  return { mostBirdies, mostWipes, worstBogeyRun, worstStretch };
+}
+
 function callBanterModel(prompt) {
   const apiKey = window.localStorage.getItem("spinners-llm-api-key");
   if (!apiKey) return null;
@@ -711,9 +779,10 @@ async function generateRoundSummary(state, roundId) {
   const overall = getOverallLeaderboard(state);
   const ntpId = state.ntpWinners?.[`${round.id}_ntp`];
   const ldId = state.ldWinners?.[`${round.id}_ld`];
+  const trendStats = getRoundTrendStats(state, round);
   const top3 = leaderboard.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.score} pts)`).join("\n");
   const overallTop = overall.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.total} total)`).join("\n");
-  const prompt = `Write a short daily summary for round ${round.num} (${round.courseName}).\nRound leaders:\n${top3}\n\nOverall leaders:\n${overallTop}\n\nNTP winner: ${ntpId ? getP(ntpId)?.name : "TBC"}\nLD winner: ${ldId ? getP(ldId)?.name : "TBC"}\n\nReturn exactly three bullet points: one funny headline, one stat nugget, one friendly sledge line.`;
+  const prompt = `Write a short daily summary for round ${round.num} (${round.courseName}).\nRound leaders:\n${top3}\n\nOverall leaders:\n${overallTop}\n\nNTP winner: ${ntpId ? getP(ntpId)?.name : "TBC"}\nLD winner: ${ldId ? getP(ldId)?.name : "TBC"}\n\nRound trend notes:\n- Most birdies: ${trendStats.mostBirdies?.player?.name || "TBC"} (${trendStats.mostBirdies?.birdies ?? 0})\n- Most wipes (P): ${trendStats.mostWipes?.player?.name || "TBC"} (${trendStats.mostWipes?.wipes ?? 0})\n- Worst bogey run: ${trendStats.worstBogeyRun?.player?.name || "TBC"} (${trendStats.worstBogeyRun?.worstBogeyRun ?? 0} holes)\n- Worst 3-hole stretch: ${trendStats.worstStretch?.player?.name || "TBC"} (+${trendStats.worstStretch?.worstStretch?.total ?? 0} net over holes ${trendStats.worstStretch?.worstStretch?.startHole ?? "?"}-${trendStats.worstStretch?.worstStretch?.endHole ?? "?"})\n\nMake it cheeky and funny, call out weird momentum swings, and include obscure round trends people might miss. Return exactly three bullet points: one funny headline, one stat nugget, one friendly sledge line.`;
   const aiText = await callBanterModel(prompt);
 
   if (aiText) {
@@ -729,14 +798,26 @@ async function generateRoundSummary(state, roundId) {
 
   const [first, second] = leaderboard;
   const leaderGap = first && second ? first.score - second.score : 0;
+  const birdieLine = trendStats.mostBirdies?.birdies
+    ? `${trendStats.mostBirdies.player.short} quietly stacked **${trendStats.mostBirdies.birdies} birdies** while everyone else was arguing over gimmes.`
+    : "Birdies were rare — mostly survival golf and brave faces.";
+  const wipeLine = trendStats.mostWipes?.wipes
+    ? `${trendStats.mostWipes.player.short} led the wipe parade with **${trendStats.mostWipes.wipes} P's**, proving consistency comes in many forms.`
+    : "No wipes recorded. Suspiciously tidy behaviour for this group.";
+  const stretchLine = trendStats.worstStretch?.worstStretch
+    ? `${trendStats.worstStretch.player.short} suffered the darkest patch: holes ${trendStats.worstStretch.worstStretch.startHole}-${trendStats.worstStretch.worstStretch.endHole} at **+${trendStats.worstStretch.worstStretch.total} net**.`
+    : "No catastrophic 3-hole implosion detected (yet).";
+  const bogeyRunLine = trendStats.worstBogeyRun?.worstBogeyRun
+    ? `${trendStats.worstBogeyRun.player.short} went on a **${trendStats.worstBogeyRun.worstBogeyRun}-hole bogey-or-worse run** and lived to tell the tale.`
+    : "Bogey runs stayed short, tempers mostly intact.";
   return {
     roundId,
     roundNum: round.num,
     title: `Round ${round.num} Banter Bulletin`,
     content: [
       `• **Clubhouse Headline:** ${first?.short || "Someone"} strutted into ${round.courseName} like they owned the joint, posting **${first?.score ?? "??"} pts** and charging into first.` ,
-      `• **Stat Nerd Corner:** The gap from 1st to 2nd is **${leaderGap} pts**, while overall leaderboard chaos remains deliciously alive going into the next round.`,
-      `• **Weekend Sledge:** NTP went to **${ntpId ? getP(ntpId)?.short : "the mystery sniper"}** and LD to **${ldId ? getP(ldId)?.short : "the unknown bomber"}** — receipts are being checked by the loudest man in the group chat.`,
+      `• **Stat Nerd Corner:** ${birdieLine} ${wipeLine} ${stretchLine} Gap from 1st to 2nd: **${leaderGap} pts**.`,
+      `• **Weekend Sledge:** ${bogeyRunLine} NTP went to **${ntpId ? getP(ntpId)?.short : "the mystery sniper"}** and LD to **${ldId ? getP(ldId)?.short : "the unknown bomber"}** — receipts are being checked by the loudest man in the group chat.`,
     ].join("\n"),
     source: "fallback",
     releasedAt: new Date().toISOString(),
@@ -1008,6 +1089,8 @@ function CupScreen({state,onMatch,live,isAdmin}){
           </div>
         )}
       </div>
+
+      <div style={{marginTop:-8,marginBottom:14,fontSize:11,color:"#64748b",fontStyle:"italic"}}>Click match for detailed scorecard.</div>
 
       {ROUNDS.map(round=>{
         const roundScoringOpen = isRoundScoringLive(state, round.id);
@@ -1606,15 +1689,15 @@ function LeaderView({state,catId,live,isAdmin,onBack,onOpenMatch}){
   }
   let rankings=[];
   if(catId==="spinners"){
+    const revealedRounds = ROUNDS.filter(r => isRoundRevealed(state, r.id, live, isAdmin));
     rankings=PLAYERS.map(p=>{
       let t=0,holes=0;
-      ROUNDS.forEach(r=>{
-        if(!isRoundRevealed(state,r.id,live,isAdmin)) return;
+      revealedRounds.forEach(r=>{
         const c=getCourse(r.courseId);const sc=state.scores?.[r.id]?.[p.id]||[];
         t+=pStab(sc,c,courseHcp(state.handicaps?.[p.id],c,getTeeKey(state,c.id)));
         holes+=sc.filter(s=>holeFilled(s)).length;
       });
-      return{...p,score:t,holes,totalHoles:54};
+      return{...p,score:t,holes,totalHoles:revealedRounds.length*18};
     }).sort((a,b)=>b.score-a.score);
   } else if(catId.startsWith("d")){
     const ri=parseInt(catId[1])-1;const round=ROUNDS[ri];const course=getCourse(round.courseId);
