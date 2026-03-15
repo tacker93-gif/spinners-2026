@@ -1499,6 +1499,7 @@ function LeaderList({onSelect}){
 }
 
 function LeaderView({state,catId,live,onBack,onOpenMatch}){
+  const hideDailyPlayerPhotos = !live && (catId.startsWith("d") || catId.startsWith("2b"));
   if(catId==="ntp"||catId==="ld"){
     return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{catId==="ntp"?"📍 Nearest the Pin":"💪 Longest Drive"}</h2>
       {ROUNDS.map(round=>{
@@ -1549,14 +1550,14 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
     {rankings.map((r,i)=>{const canOpen=!!(r.roundId&&r.matchId&&onOpenMatch);return (<button key={r.id} onClick={()=>{if(canOpen)onOpenMatch(r.roundId,r.matchId);}} style={{...S.card,borderLeft:`3px solid ${r.team==="blue"?"#D4A017":"#DC2626"}`,background:i===0?"#f0fdf4":"#fff",width:"100%",textAlign:"left",borderTop:"1px solid #e2e8f0",borderRight:"1px solid #e2e8f0",borderBottom:"1px solid #e2e8f0",cursor:canOpen?"pointer":"default"}}>
       <div style={{display:"flex",alignItems:"center",gap:10}}>
         <div style={{width:24,fontSize:i<3?16:13,fontWeight:700,color:"#94a3b8",textAlign:"center"}}>{i===0?"🥇":i===1?"🥈":i===2?"🥉":i+1}</div>
-        {r.id && r.id.includes("_") ? (
+        {!hideDailyPlayerPhotos && (r.id && r.id.includes("_") ? (
           <div style={{display:"flex",alignItems:"center",marginRight:2}}>
             <PlayerAvatar id={r.id.split("_")[0]} size={LEADER_PHOTO_SIZE} live={live} />
             <div style={{marginLeft:-10}}><PlayerAvatar id={r.id.split("_")[1]} size={LEADER_PHOTO_SIZE} live={live} /></div>
           </div>
         ) : (
           <PlayerAvatar id={r.id} size={LEADER_SINGLE_PHOTO_SIZE} live={live} />
-        )}
+        ))}
         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600,color:"#1e293b",display:"flex",flexDirection:"column",lineHeight:1.15}}>{r.id && r.id.includes("_") ? (<><span>{r.topName}</span><span>{r.bottomName} {r.chCount?chulliganBadges(r.chCount):""}</span></>) : (<span>{r.name} {chulliganBadges(getChulliganCount(state,r.roundId||"",r.id))}</span>)}</div></div>
         <div style={{textAlign:"right"}}>
           <div style={{display:"flex",alignItems:"baseline",gap:4,justifyContent:"flex-end"}}>
