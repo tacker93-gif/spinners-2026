@@ -85,7 +85,7 @@ function getTeamInitial(state, teamKey) {
 }
 
 const PLAYER_PHOTOS = {
-  angus: "./public/Angus Scott.png",
+  angus: "./Angus Scott.png",
   nick: "./Nick Tankard.png",
   tom: "./Tom Crawford.png",
   callum: "./Callum Hinwood.png",
@@ -93,6 +93,7 @@ const PLAYER_PHOTOS = {
   jturner: "./James Turner.png",
   chris: "./Chris Green.png",
   luke: "./Luke Abi-Hanna.png",
+  alex: "./Alex Denning.png",
   lach: "./Lach Taylor (2).png",
   jason: "./Jason McIlwaine (2).png",
   cam: "./Cam Clark.png",
@@ -167,18 +168,18 @@ const PLAYER_BIOS = {
   tom: "Tom swings the club with the smooth confidence of a man used to making big calls in private equity and expecting them to work out. Armed with a swing that looks far too easy and a head large enough to store all that confidence, he’s quietly convinced the Spinners Cup is his to lose. In a team format he’ll happily assume leadership duties, whether anyone asked him to or not.",
   cam: "Cam has flown down from Brisbane with a rugby-hardened physique and a downswing that looks like it’s trying to tackle the ball through the turf. The defending champion is chasing back-to-back Spinners Cups and carries himself with the quiet confidence of a former pro athlete. In a team setting he’ll bring a competitive edge and expect everyone else to lift to his standards.",
   chris: "Chris arrives fresh from the international cricket circuit and immediately claims the title of best golfer on the trip, which annoyingly might actually be true. Equal parts pretty boy and elite sportsman, he stripes it around the course while quietly trying to escape the long shadow of his little brother, a two-time Spinners Cup champion. In a team environment he’ll be the steady hand — although the sledging will start the moment someone mentions his brother.",
-  nick: "Nick worships Tiger Woods and approaches the Spinners Cup with the same intensity, which makes last year’s playoff loss sting even more. With his home course being short, there’s enormous pressure on his driver to finally prove itself on a proper track. In a team setting he’ll bring serious competitive energy, along with the occasional Tiger-inspired fist pump.",
+  nick: "Nick worships Tiger Woods and approaches the Spinners Cup with the same intensity, which makes last year’s playoff loss sting even more. Working at CBA has perhaps made him a little risk-averse at times — expect plenty of “percentage golf” and cautious lines off the tee while he channels his inner Tiger. In a team setting he’ll bring serious competitive energy, although his teammates may occasionally need to convince him to take the aggressive play.",
   jason: "Jason possesses what many experts are already calling the ugliest swing ever brought to the Mornington Peninsula. Somehow the ball still goes forward often enough to keep him in the game, much to the confusion of everyone watching. Despite the chaotic mechanics, his clean-cut physique suggests a man built for sport — unfortunately the golf swing didn’t get the same treatment. In a team format he’ll happily grind away and try to sneak in the occasional surprisingly solid shot.",
   jturner: "James Turner launches the ball enormous distances for a man who looks like he should still be shopping in the kids section. As the self-appointed Chief Marketing Officer of the Spinners Cup, he’s responsible for most of the hype and very little of the detail. In a team environment he’ll be excellent for morale, even if his concentration occasionally wanders off with the marketing ideas.",
   callum: "Callum owns a slappy swing that could either thrive or be completely destroyed by the notorious Melbourne sandbelt winds. On the greens his hands have a habit of shaking like a washing machine under pressure. With his first child on the way, this may be the last weekend of uninterrupted golf for the next 18 years. In a team setting he’ll be desperate to contribute — ideally before the putter starts trembling.",
-  lach: "Lach has been putting in serious hours with a golf coach and is determined to let everyone know about it. Still relatively new to the game, but already talks like he’s got a green jacket in the wardrobe. Confidence is sky high — the scorecard remains under investigation. In a team environment he’ll bring enthusiasm and plenty of advice, requested or otherwise.",
+  lach: "Lach has been putting in serious hours with a golf coach and is determined to let everyone know about it. By day he works in tech sales, which means he’s extremely confident explaining why things should work — even when the results say otherwise. In a team environment he’ll bring energy, optimism, and a very convincing explanation after every slightly wayward shot.",
   jkelly: "James carries the emotional scars of a golf trip where he shanked his first tee shot twice in a row, an achievement few golfers can claim. The tech sales professional insists those days are behind him, but the group will be watching nervously on the first tee. In a team setting he’ll be keen to redeem himself and prove the shank era is officially over.",
-  alex: "Alex is annoyingly good at basically every sport he tries, and golf appears to be no exception. When he’s not working for a furniture manufacturer, renovating a house, or flying to China, he somehow finds time to stripe the ball. Natural talent is a dangerous thing in the Spinners Cup. In a team format he’ll likely be the dependable contributor who quietly carries the side.",
-  luke: "Luke has flown in from Dubai and arrives convinced the Spinners Cup is already his. A former clutch basketball player, he backs himself in big moments and isn’t shy about reminding the group. Whether the confidence translates to golf remains the weekend’s biggest subplot. In a team environment he’ll relish the big moments and happily take responsibility for the pressure shots.",
+  alex: "Alex is the kind of annoyingly talented sportsman who can turn up to almost anything and be good at it within about five minutes. Between working in the furniture industry, spending suspiciously large amounts of time in China, and managing a major renovation, he somehow still manages to flush golf shots like he actually practises. In a team environment he’ll likely play the role of the quietly reliable performer — frustratingly good without appearing to try.",
+  luke: "Luke has flown in from Dubai and arrives convinced the Spinners Cup is already his. A former clutch basketball player, he backs himself in big moments and isn’t shy about reminding the group — although some still remember the infamous incident where he somehow managed to kill a duck on the course. In a team environment he’ll embrace the pressure moments and happily take on the hero shot.",
 };
 
 const PLAYER_BIO_IMAGES = {
-  angus: "./public/Angus Scott.png",
+  angus: "./Angus Scott.png",
   tom: "./Tom Crawford.png",
   cam: "./Cam Clark.png",
   chris: "./Chris Green.png",
@@ -186,6 +187,7 @@ const PLAYER_BIO_IMAGES = {
   jason: "./Jason McIlwaine (2).png",
   jturner: "./James Turner.png",
   callum: "./Callum Hinwood.png",
+  alex: "./Alex Denning.png",
   lach: "./Lach Taylor (2).png",
   jkelly: "./James Kelly (2).png",
   luke: "./Luke Abi-Hanna.png",
