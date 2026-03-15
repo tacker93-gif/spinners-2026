@@ -565,6 +565,12 @@ function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
 }
 
+function isRoundRevealed(state, roundId, live, isAdmin) {
+  if (isAdmin) return true;
+  if (!live) return false;
+  return isRoundScoringLive(state, roundId);
+}
+
 // ─── Main App ────────────────────────────────────────────────
 function getTeeKey(state, courseId) { return state.tees?.[courseId] || "white"; }
 function getSlope(course, teeKey) { return course.teeData[teeKey]?.slope || 132; }
@@ -708,14 +714,14 @@ function App() {
       <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
       <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
-        {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live}/>}
+        {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
         {tab==="scores"&&!sub&&(live?<ScoresList state={state} cur={cur} isAdmin={isAdmin} onSelect={(r,p)=>setSub({t:"sc",r,p})}/>:<LockedPage title="Scoring" msg="Scoring will open when the event goes live." icon="⛳"/>)}
         {tab==="scores"&&sub?.t==="sc"&&<ScoreEntry state={state} upd={upd} roundId={sub.r} playerId={sub.p||cur} isAdmin={isAdmin} cur={cur} onBack={()=>setSub(null)}/>}
         {tab==="leaders"&&!sub&&<LeaderList onSelect={id=>setSub({t:"lb",id})}/>}
-        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} live={live} onBack={()=>setSub(null)} onOpenMatch={(roundId,matchId)=>{setTab("cup");setSub({t:"m",id:matchId,roundId});}}/>}
+        {tab==="leaders"&&sub?.t==="lb"&&<LeaderView state={state} catId={sub.id} live={live} isAdmin={isAdmin} onBack={()=>setSub(null)} onOpenMatch={(roundId,matchId)=>{setTab("cup");setSub({t:"m",id:matchId,roundId});}}/>}
         {tab==="schedule"&&!sub&&<ScheduleMenu onSelect={id=>setSub({t:"sched",id})}/>}
-        {tab==="schedule"&&sub?.t==="sched"&&sub.id==="matches"&&(live?<MatchSchedule onBack={()=>setSub(null)}/>:<LockedMessage title="Match Schedule" msg="The match schedule and team draw will be revealed on game day. Stay tuned! 🏌️" onBack={()=>setSub(null)}/>)}
+        {tab==="schedule"&&sub?.t==="sched"&&sub.id==="matches"&&(live?<MatchSchedule state={state} live={live} isAdmin={isAdmin} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Schedule" msg="The match schedule and team draw will be revealed on game day. Stay tuned! 🏌️" onBack={()=>setSub(null)}/>)}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="trip"&&<TripSchedule onBack={()=>setSub(null)}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="pkrooms"&&<PkRoomsPage onBack={()=>setSub(null)}/>}
         {tab==="schedule"&&sub?.t==="sched"&&sub.id==="rules"&&<RulesPage onBack={()=>setSub(null)}/>}
@@ -848,9 +854,11 @@ function LockedMessage({title,msg,onBack}){
 }
 
 // ─── Cup Screen ──────────────────────────────────────────────
-function CupScreen({state,onMatch,live}){
+function CupScreen({state,onMatch,live,isAdmin}){
   let bT=0,gT=0,bLive=0,gLive=0;
-  ROUNDS.forEach(r=>r.matches.forEach(m=>{
+  ROUNDS.forEach(r=>{
+    if(!isRoundRevealed(state,r.id,live,isAdmin)) return;
+    r.matches.forEach(m=>{
     const res=matchStatus(state,m,r);
     if(res.status==="done"){if(res.winner==="blue")bT+=1;else if(res.winner==="grey")gT+=1;else{bT+=0.5;gT+=0.5;}}
     if(res.status==="live"){
@@ -858,7 +866,8 @@ function CupScreen({state,onMatch,live}){
       else if(res.bUp<0)gLive+=1;
       else{bLive+=0.5;gLive+=0.5;}
     }
-  }));
+  });
+  });
   const bInterim=bT+bLive;
   const gInterim=gT+gLive;
   const totalPoints=9;
@@ -927,7 +936,9 @@ function CupScreen({state,onMatch,live}){
         )}
       </div>
 
-      {ROUNDS.map(round=>(
+      {ROUNDS.map(round=>{
+        const roundRevealed = isRoundRevealed(state,round.id,live,isAdmin);
+        return (
         <div key={round.id} style={{marginBottom:20}}>
           <div style={{marginBottom:8}}>
             <div style={{fontSize:13,fontWeight:700,color:"#1a2e1a"}}>{round.day}</div>
@@ -935,36 +946,37 @@ function CupScreen({state,onMatch,live}){
           </div>
           {round.matches.map((match,mi)=>{
             const res=matchStatus(state,match,round);
+            const showMatchDetails = live && roundRevealed;
             let bg="#fff",bdr="#e2e8f0";
-            if(live&&(res.status==="done"||res.status==="live")){
+            if(showMatchDetails&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
               if(ahead==="blue"||res.winner==="blue"){bg="#FFFBEB";bdr="#FDE68A";}
               else if(ahead==="grey"||res.winner==="grey"){bg="#FEF2F2";bdr="#FECACA";}
               else{bg="#f0fdf4";bdr="#86efac";}
             }
             let midTxt="vs",midCol="#94a3b8";
-            if(live&&res.status==="live"){
+            if(showMatchDetails&&res.status==="live"){
               midTxt=res.bUp===0?"All Square":`${Math.abs(res.bUp)} Up`;
               midCol=res.bUp>0?"#B8860B":res.bUp<0?"#B91C1C":"#16a34a";
-            } else if(live&&res.status==="done"){
+            } else if(showMatchDetails&&res.status==="done"){
               midTxt=res.display;
               midCol=res.winner==="blue"?"#B8860B":res.winner==="grey"?"#B91C1C":"#16a34a";
             }
             return(
-              <button key={match.id} onClick={()=>{if(live)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:live?"pointer":"default",opacity:live?1:0.75}}>
+              <button key={match.id} onClick={()=>{if(showMatchDetails)onMatch(match.id);}} style={{...S.card,background:bg,borderColor:bdr,cursor:showMatchDetails?"pointer":"default",opacity:showMatchDetails?1:0.75}}>
                 <div style={{display:"flex",alignItems:"center"}}>
-                  <div style={{flex:1}}><TeamPairDisplay ids={match.blue} live={live} color={live?"#B8860B":"#94a3b8"} state={state} roundId={round.id} showBadges={live} /></div>
+                  <div style={{flex:1}}><TeamPairDisplay ids={match.blue} live={showMatchDetails} color={showMatchDetails?"#B8860B":"#94a3b8"} state={state} roundId={round.id} showBadges={showMatchDetails} /></div>
                   <div style={{padding:"0 8px",minWidth:70,textAlign:"center"}}>
                     <div style={{fontSize:11,fontWeight:700,color:midCol,fontFamily:"'JetBrains Mono',monospace"}}>{midTxt}</div>
-                    {live&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
+                    {showMatchDetails&&res.status==="live"&&<div style={{fontSize:8,color:"#94a3b8"}}>thru {res.played}</div>}
                   </div>
-                  <div style={{flex:1,textAlign:"right"}}><TeamPairDisplay ids={match.grey} live={live} color={live?"#B91C1C":"#94a3b8"} align="right" state={state} roundId={round.id} showBadges={live} /></div>
+                  <div style={{flex:1,textAlign:"right"}}><TeamPairDisplay ids={match.grey} live={showMatchDetails} color={showMatchDetails?"#B91C1C":"#94a3b8"} align="right" state={state} roundId={round.id} showBadges={showMatchDetails} /></div>
                 </div>
               </button>
             );
           })}
         </div>
-      ))}
+      );})}
     </div>
   );
 }
@@ -1501,7 +1513,7 @@ function LeaderList({onSelect}){
   return(<div><h2 style={S.sectTitle}>Leaderboards</h2>{cats.map(c=>(<button key={c.id} onClick={()=>onSelect(c.id)} style={S.card}><div style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{c.name}</div><div style={{fontSize:11,color:"#94a3b8"}}>{c.desc}</div></button>))}</div>);
 }
 
-function LeaderView({state,catId,live,onBack,onOpenMatch}){
+function LeaderView({state,catId,live,isAdmin,onBack,onOpenMatch}){
   const hideDailyPlayerPhotos = !live && (catId.startsWith("d") || catId.startsWith("2b"));
   if(catId==="ntp"||catId==="ld"){
     return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{catId==="ntp"?"📍 Nearest the Pin":"💪 Longest Drive"}</h2>
@@ -1519,6 +1531,7 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
     rankings=PLAYERS.map(p=>{
       let t=0,holes=0;
       ROUNDS.forEach(r=>{
+        if(!isRoundRevealed(state,r.id,live,isAdmin)) return;
         const c=getCourse(r.courseId);const sc=state.scores?.[r.id]?.[p.id]||[];
         t+=pStab(sc,c,courseHcp(state.handicaps?.[p.id],c,getTeeKey(state,c.id)));
         holes+=sc.filter(s=>holeFilled(s)).length;
@@ -1527,6 +1540,9 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
     }).sort((a,b)=>b.score-a.score);
   } else if(catId.startsWith("d")){
     const ri=parseInt(catId[1])-1;const round=ROUNDS[ri];const course=getCourse(round.courseId);
+    if(!isRoundRevealed(state,round.id,live,isAdmin)){
+      return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>Round locked</h2><div style={{...S.card,borderStyle:"dashed",borderColor:"#cbd5e1",background:"#f8fafc"}}><div style={{fontSize:12,fontWeight:700,color:"#334155"}}>This leaderboard is hidden</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>It will unlock once admin opens scoring for this round.</div></div></div>);
+    }
     rankings=PLAYERS.map(p=>{
       const sc=state.scores?.[round.id]?.[p.id]||[];
       const holes=sc.filter(s=>holeFilled(s)).length;
@@ -1534,6 +1550,9 @@ function LeaderView({state,catId,live,onBack,onOpenMatch}){
     }).sort((a,b)=>b.score-a.score);
   } else if(catId.startsWith("2b")){
     const ri=parseInt(catId[2])-1;const round=ROUNDS[ri];const course=getCourse(round.courseId);
+    if(!isRoundRevealed(state,round.id,live,isAdmin)){
+      return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>Round locked</h2><div style={{...S.card,borderStyle:"dashed",borderColor:"#cbd5e1",background:"#f8fafc"}}><div style={{fontSize:12,fontWeight:700,color:"#334155"}}>This leaderboard is hidden</div><div style={{fontSize:11,color:"#64748b",marginTop:2}}>It will unlock once admin opens scoring for this round.</div></div></div>);
+    }
     const pairs=[];
     round.matches.forEach(match=>{[match.blue,match.grey].forEach(team=>{
       const [a,b]=team;const sA=state.scores?.[round.id]?.[a]||[];const sB=state.scores?.[round.id]?.[b]||[];
@@ -1626,7 +1645,7 @@ function ScheduleMenu({onSelect}){
 }
 
 // ─── Match Schedule ──────────────────────────────────────────
-function MatchSchedule({onBack}){
+function MatchSchedule({state,live,isAdmin,onBack}){
   return(<div>
     <button onClick={onBack} style={S.backBtn}>← Schedule</button>
     <h2 style={S.sectTitle}>Match Schedule & Draw</h2>
@@ -1638,6 +1657,13 @@ function MatchSchedule({onBack}){
         <div style={{fontSize:11,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>Par {course.par} · Slope {getSlope(course,'white')} · CR {getRating(course,'white')} · White Tees</div>
         <div style={{marginTop:12,paddingTop:12,borderTop:"1px solid #e2e8f0"}}>
           <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:0.5,marginBottom:8}}>Tee Times & Draw</div>
+          {!isRoundRevealed(state,round.id,live,isAdmin) ? (
+            <div style={{padding:"10px 12px",background:"#fff",borderRadius:8,border:"1px dashed #cbd5e1"}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#334155"}}>Round locked</div>
+              <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Pairings reveal when scoring opens for this round.</div>
+            </div>
+          ) : (
+            <>
           {round.matches.map((match,mi)=>(
             <div key={match.id} style={{padding:"8px 10px",background:"#fff",borderRadius:8,marginBottom:6,border:"1px solid #e2e8f0"}}>
               <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
@@ -1651,6 +1677,8 @@ function MatchSchedule({onBack}){
               </div>
             </div>
           ))}
+            </>
+          )}
         </div>
       </div>
     );})}
