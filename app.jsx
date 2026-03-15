@@ -2226,7 +2226,17 @@ function PlayersPage({state,upd,isAdmin,live}){
             <img
               src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
               alt={getP(selectedBio)?.name}
-              style={{display:"block",width:"100%",maxWidth:280,aspectRatio:"1 / 1",borderRadius:14,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0"}}
+              style={{
+                display:"block",
+                width:"100%",
+                maxWidth:280,
+                aspectRatio:"1 / 1",
+                borderRadius:14,
+                objectFit:"cover",
+                margin:"0 auto 14px",
+                border:"2px solid #e2e8f0",
+                filter: live ? "none" : "grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)",
+              }}
             />
             <p style={{margin:0,fontSize:14,color:"#334155",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{PLAYER_BIOS[selectedBio] || "Bio coming soon."}</p>
           </div>
