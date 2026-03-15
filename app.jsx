@@ -937,23 +937,20 @@ function CupScreen({state,onMatch,live,isAdmin}){
       </div>
 
       {ROUNDS.map(round=>{
-        const roundRevealed = isRoundRevealed(state,round.id,live,isAdmin);
+        const roundScoringOpen = isRoundScoringLive(state, round.id);
+        const showMatchDetails = isAdmin || (!!state?.eventLive && roundScoringOpen);
         return (
         <div key={round.id} style={{marginBottom:20}}>
           <div style={{marginBottom:8}}>
             <div style={{fontSize:13,fontWeight:700,color:"#1a2e1a"}}>{round.day}</div>
             <div style={{fontSize:11,color:"#94a3b8"}}>{round.courseName}</div>
+            {!showMatchDetails && !isAdmin && state?.eventLive && (
+              <div style={{fontSize:10,color:"#b45309",marginTop:2}}>Round details are hidden until open scoring is enabled.</div>
+            )}
           </div>
-          {!isRoundRevealed(state,round.id,live,isAdmin) ? (
-            <div style={{...S.card,borderStyle:"dashed",borderColor:"#cbd5e1",background:"#f8fafc",cursor:"default"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#334155"}}>Round locked</div>
-              <div style={{fontSize:11,color:"#64748b",marginTop:2}}>This round will appear once admin opens scoring for it.</div>
-            </div>
-          ) : (
-          <>
+
           {round.matches.map((match,mi)=>{
             const res=matchStatus(state,match,round);
-            const showMatchDetails = live && roundRevealed;
             let bg="#fff",bdr="#e2e8f0";
             if(showMatchDetails&&(res.status==="done"||res.status==="live")){
               const ahead=res.bUp>0?"blue":res.bUp<0?"grey":"even";
@@ -982,8 +979,7 @@ function CupScreen({state,onMatch,live,isAdmin}){
               </button>
             );
           })}
-          </>
-          )}
+
         </div>
       );})}
     </div>
