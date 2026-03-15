@@ -2224,9 +2224,9 @@ function PlayersPage({state,upd,isAdmin,live}){
               <button onClick={() => setSelectedBio(null)} style={{border:"none",background:"transparent",fontSize:20,lineHeight:1,color:"#64748b",cursor:"pointer"}}>×</button>
             </div>
             <img
-              src={selectedBioImage}
+              src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
               alt={getP(selectedBio)?.name}
-              style={{display:"block",width:"100%",maxWidth:selectedBioHasHighResImage?280:140,aspectRatio:"1 / 1",borderRadius:14,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0",imageRendering:selectedBioHasHighResImage?"auto":"crisp-edges",filter:live?"none":"grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)"}}
+              style={{display:"block",width:"100%",maxWidth:280,aspectRatio:"1 / 1",borderRadius:14,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0"}}
             />
             <p style={{margin:0,fontSize:14,color:"#334155",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{PLAYER_BIOS[selectedBio] || "Bio coming soon."}</p>
           </div>
