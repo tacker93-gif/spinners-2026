@@ -159,6 +159,20 @@ const PLAYER_BIOS = {
   luke: "Luke has flown in from Dubai and arrives convinced the Spinners Cup is already his. A former clutch basketball player, he backs himself in big moments and isn’t shy about reminding the group. Whether the confidence translates to golf remains the weekend’s biggest subplot. In a team environment he’ll relish the big moments and happily take responsibility for the pressure shots.",
 };
 
+const PLAYER_BIO_IMAGES = {
+  tom: "./Tom Crawford.png",
+  cam: "./Cam Clark.png",
+  chris: "./Chris Green.png",
+  nick: "./Nick Tankard.png",
+  jason: "./Jason McIlwaine (2).png",
+  jturner: "./James Turner.png",
+  callum: "./Callum Hinwood.png",
+  lach: "./Lach Taylor (2).png",
+  jkelly: "./James Kelly (2).png",
+  luke: "./Luke Abi-Hanna.png",
+};
+
+
 // NTP: par 3, not in first 5 holes of front or back nine (holes 1-5 or 10-14)
 function getNtpHole(courseId) {
   const c = getCourse(courseId);
@@ -2208,9 +2222,9 @@ function PlayersPage({state,upd,isAdmin,live}){
               <button onClick={() => setSelectedBio(null)} style={{border:"none",background:"transparent",fontSize:20,lineHeight:1,color:"#64748b",cursor:"pointer"}}>×</button>
             </div>
             <img
-              src={PLAYER_PHOTOS[selectedBio]}
+              src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
               alt={getP(selectedBio)?.name}
-              style={{display:"block",width:180,height:180,borderRadius:12,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0"}}
+              style={{display:"block",width:"100%",maxWidth:280,aspectRatio:"1 / 1",borderRadius:14,objectFit:"cover",margin:"0 auto 14px",border:"2px solid #e2e8f0"}}
             />
             <p style={{margin:0,fontSize:14,color:"#334155",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{PLAYER_BIOS[selectedBio] || "Bio coming soon."}</p>
           </div>
