@@ -293,6 +293,7 @@ const ROUNDS = [
 // ─── Helpers ─────────────────────────────────────────────────
 function getP(id) { return PLAYERS.find(p => p.id === id); }
 function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=false,fontSize=12}){
+  const showAvatars = live;
   const names = live
     ? (ids?.length ? ids.map(id => ({
         short: getP(id)?.short || "???",
@@ -301,10 +302,12 @@ function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=f
     : [{ short: "???", badges: "" }, { short: "???", badges: "" }];
   return (
     <div style={{display:"flex",alignItems:"center",justifyContent:align==="right"?"flex-end":"flex-start",gap:8}}>
-      <div style={{display:"flex",alignItems:"center",marginRight:2,opacity:live?1:0.75}}>
-        <PlayerAvatar id={ids?.[0]} size={CUP_PHOTO_SIZE} live={live} />
-        <div style={{marginLeft:-10}}><PlayerAvatar id={ids?.[1]} size={CUP_PHOTO_SIZE} live={live} /></div>
-      </div>
+      {showAvatars && (
+        <div style={{display:"flex",alignItems:"center",marginRight:2,opacity:live?1:0.75}}>
+          <PlayerAvatar id={ids?.[0]} size={CUP_PHOTO_SIZE} live={live} />
+          <div style={{marginLeft:-10}}><PlayerAvatar id={ids?.[1]} size={CUP_PHOTO_SIZE} live={live} /></div>
+        </div>
+      )}
       <div style={{fontSize,fontWeight:600,color,display:"flex",flexDirection:"column",alignItems:align==="right"?"flex-end":"flex-start",lineHeight:1.15,textAlign:align}}>
         {names.map((name, idx) => (
           <span key={`${name.short}_${idx}`} style={{display:"flex",flexDirection:"column",alignItems:align==="right"?"flex-end":"flex-start"}}>
