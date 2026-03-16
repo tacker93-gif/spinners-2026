@@ -292,27 +292,27 @@ const ROUNDS = [
     id:"r1",num:1,day:"Friday 27th March",courseId:"standrews",courseName:"St Andrews Beach",
     teeTimes:["11:39am","11:48am","11:57am"],
     matches:[
-      { id:"m1",blue:["angus","nick"],grey:["chris","luke"] },
-      { id:"m2",blue:["tom","jturner"],grey:["jason","cam"] },
-      { id:"m3",blue:["callum","jkelly"],grey:["alex","lach"] },
+      { id:"m1",blue:["angus","jturner"],grey:["chris","cam"] },
+      { id:"m2",blue:["nick","jkelly"],grey:["jason","lach"] },
+      { id:"m3",blue:["tom","callum"],grey:["luke","alex"] },
     ],
   },
   {
     id:"r2",num:2,day:"Saturday 28th March",courseId:"pk_south",courseName:"PK South Course",
     teeTimes:["12:44pm","12:52pm","1:00pm"],
     matches:[
-      { id:"m4",blue:["tom","callum"],grey:["chris","lach"] },
-      { id:"m5",blue:["nick","jturner"],grey:["jason","alex"] },
-      { id:"m6",blue:["angus","jkelly"],grey:["luke","cam"] },
+      { id:"m4",blue:["angus","nick"],grey:["chris","jason"] },
+      { id:"m5",blue:["callum","jkelly"],grey:["luke","lach"] },
+      { id:"m6",blue:["tom","jturner"],grey:["alex","cam"] },
     ],
   },
   {
     id:"r3",num:3,day:"Sunday 29th March",courseId:"pk_north",courseName:"PK North Course",
     teeTimes:["8:27am","8:35am","8:43am"],
     matches:[
-      { id:"m7",blue:["angus","tom"],grey:["chris","alex"] },
-      { id:"m8",blue:["nick","callum"],grey:["luke","jason"] },
-      { id:"m9",blue:["jturner","jkelly"],grey:["cam","lach"] },
+      { id:"m7",blue:["callum","jturner"],grey:["jason","alex"] },
+      { id:"m8",blue:["nick","tom"],grey:["chris","lach"] },
+      { id:"m9",blue:["angus","jkelly"],grey:["luke","cam"] },
     ],
   },
 ];
