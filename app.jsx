@@ -194,8 +194,14 @@ const PLAYER_BIO_IMAGES = {
 };
 
 
-// NTP: par 3, not in first 5 holes of front or back nine (holes 1-5 or 10-14)
-function getNtpHole(courseId) {
+const NTP_HOLE_BY_ROUND = {
+  r2: 17,
+};
+
+// NTP: par 3, not in first 5 holes of front or back nine (holes 1-5 or 10-14), with round overrides
+function getNtpHole(roundId, courseId) {
+  const roundOverride = NTP_HOLE_BY_ROUND[roundId];
+  if (roundOverride) return roundOverride;
   const c = getCourse(courseId);
   const ok = c.holes.filter(h => h.par === 3 && h.n > 5 && !(h.n >= 10 && h.n <= 14));
   return ok.length > 0 ? ok[0].n : c.holes.filter(h => h.par === 3).pop()?.n || 9;
@@ -1281,7 +1287,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
   const dH=courseHcp(state.handicaps?.[playerId],course,getTeeKey(state,course.id));
   const partnerDH = partnerId ? courseHcp(state.handicaps?.[partnerId],course,getTeeKey(state,course.id)) : null;
 
-  const ntpH=getNtpHole(round.courseId),ldH=getLdHole(round.courseId);
+  const ntpH=getNtpHole(round.id, round.courseId),ldH=getLdHole(round.courseId);
   const ntpKey=`${roundId}_ntp`,ldKey=`${roundId}_ld`;
   const myChulligans=getChulliganRecord(state,roundId,playerId);
 
@@ -1631,7 +1637,7 @@ function LeaderView({state,catId,live,isAdmin,onBack,onOpenMatch}){
   if(catId==="ntp"||catId==="ld"){
     return(<div><button onClick={onBack} style={S.backBtn}>← Back</button><h2 style={S.sectTitle}>{catId==="ntp"?"📍 Nearest the Pin":"💪 Longest Drive"}</h2>
       {ROUNDS.map(round=>{
-        const hn=catId==="ntp"?getNtpHole(round.courseId):getLdHole(round.courseId);
+        const hn=catId==="ntp"?getNtpHole(round.id, round.courseId):getLdHole(round.courseId);
         const key=`${round.id}_${catId}`;
         const wId=catId==="ntp"?state.ntpWinners?.[key]:state.ldWinners?.[key];
         const w=wId?getP(wId):null;
