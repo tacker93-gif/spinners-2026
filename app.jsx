@@ -1587,10 +1587,16 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       <div style={{width:64,height:56,borderRadius:10,border:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:700,color:isPU?"#94a3b8":"#1e293b",fontFamily:"'JetBrains Mono',monospace",background:"#f8faf8"}}>{isPU?"P":val||"—"}</div>
                     )}
                   </div>
-                  <div style={{width:60,textAlign:"right",flexShrink:0}}>
+                  <div style={{width:60,textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
                     {isPU?(<div><div style={{fontSize:18,fontWeight:700,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>0pts</div><div style={{fontSize:10,color:"#94a3b8"}}>Pickup</div></div>)
                     :val>0?(<div><div style={{fontSize:22,fontWeight:700,color:sColor(pts),fontFamily:"'JetBrains Mono',monospace"}}>{pts}pts</div><div style={{fontSize:10,fontWeight:600,color:sColor(pts)}}>{sLabel(pts)}</div></div>)
                     :<div style={{color:"#d1d5db"}}>—</div>}
+                    {(()=>{const cState=chulliganButtonState(playerId,i);return (
+                      <button onClick={()=>canEdit && toggleChulligan(playerId,i)} disabled={!canEdit || cState.locked}
+                        style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:12,fontWeight:700,color:(!canEdit&& !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEdit||cState.locked)?"not-allowed":"pointer",opacity:(!canEdit||cState.locked)?0.7:1}}>
+                        {cState.active?"✓🍺":"🍺"}
+                      </button>
+                    );})()}
                   </div>
                   {(isNtp||isLd)&&canEdit&&(
                     <button onClick={()=>{upd(s=>{if(isNtp){if(!s.ntpWinners)s.ntpWinners={};s.ntpWinners[ntpKey]=s.ntpWinners[ntpKey]===playerId?null:playerId;}else{if(!s.ldWinners)s.ldWinners={};s.ldWinners[ldKey]=s.ldWinners[ldKey]===playerId?null:playerId;}});}}
@@ -1598,12 +1604,6 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       {isNtp?(isNtpW?"✓ NTP":"Claim NTP ⛳"):(isLdW?"✓ LD":"Claim LD 💣")}
                     </button>
                   )}
-                  {(()=>{const cState=chulliganButtonState(playerId,i);return (
-                    <button onClick={()=>canEdit && toggleChulligan(playerId,i)} disabled={!canEdit || cState.locked}
-                      style={{padding:"4px 7px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:12,fontWeight:700,color:(!canEdit&& !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEdit||cState.locked)?"not-allowed":"pointer",opacity:(!canEdit||cState.locked)?0.7:1}}>
-                      {cState.active?"✓🍺":"🍺"}
-                    </button>
-                  );})()}
                 </div>
 
                 {/* Partner row — always visible */}
@@ -1636,17 +1636,17 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                         <div style={{width:52,height:40,borderRadius:8,border:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:18,fontWeight:600,color:pIsPU?"#94a3b8":"#B8860B",fontFamily:"'JetBrains Mono',monospace",background:"#fafafa"}}>{pIsPU?"P":pVal||"—"}</div>
                       )}
                     </div>
-                    <div style={{minWidth:56,textAlign:"right"}}>
+                    <div style={{minWidth:56,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                       {pIsPU?(<div style={{fontSize:11,color:"#94a3b8"}}>0pts</div>)
                       :pVal>0?(<div><div style={{fontSize:14,fontWeight:600,color:sColor(pPts),fontFamily:"'JetBrains Mono',monospace"}}>{pPts}pts</div><div style={{fontSize:8,color:sColor(pPts)}}>{sLabel(pPts)}</div></div>)
                       :<div style={{color:"#d1d5db",fontSize:11}}>—</div>}
+                      {(()=>{const cState=chulliganButtonState(partnerId,i); const canEditPartner=(isAdmin || (roundScoringLive && isMine)) && !isSubmitted(state, roundId, partnerId); return (
+                        <button onClick={()=>canEditPartner && toggleChulligan(partnerId,i)} disabled={!canEditPartner || cState.locked}
+                          style={{minWidth:36,padding:"4px 6px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:11,color:(!canEditPartner && !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEditPartner||cState.locked)?"not-allowed":"pointer",opacity:(!canEditPartner||cState.locked)?0.7:1}}>
+                          {cState.active?"✓🍺":"🍺"}
+                        </button>
+                      );})()}
                     </div>
-                    {(()=>{const cState=chulliganButtonState(partnerId,i); const canEditPartner=(isAdmin || (roundScoringLive && isMine)) && !isSubmitted(state, roundId, partnerId); return (
-                      <button onClick={()=>canEditPartner && toggleChulligan(partnerId,i)} disabled={!canEditPartner || cState.locked}
-                        style={{minWidth:36,padding:"4px 6px",borderRadius:6,border:`1px solid ${cState.active?"#d97706":"#d1d5db"}`,background:cState.active?"#fffbeb":"#fff",fontSize:11,color:(!canEditPartner && !cState.active)?"#cbd5e1":cState.locked?"#cbd5e1":cState.active?"#d97706":"#94a3b8",cursor:(!canEditPartner||cState.locked)?"not-allowed":"pointer",opacity:(!canEditPartner||cState.locked)?0.7:1}}>
-                        {cState.active?"✓🍺":"🍺"}
-                      </button>
-                    );})()}
 
                   </div>
                 )}
