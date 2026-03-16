@@ -56,6 +56,7 @@ async function save(s) {
 
 const SK = "spinners-cup-2026-v6";
 const PLAYER_LOCK_KEY = "spinners-cup-2026-player-lock";
+const ROUND_KICKOFF_SEEN_KEY = "spinners-cup-2026-round-kickoff";
 const ADMIN_CODE = "admin2026";
 const LOGO = "./public/Artboard 1.png";
 const SPONSOR_LOGO = "./AirKelsoBlack.png";
@@ -178,6 +179,54 @@ const PLAYER_BIOS = {
   luke: "Luke has flown in from Dubai and arrives convinced the Spinners Cup is already his. A former clutch basketball player, he backs himself in big moments and isn’t shy about reminding the group — although some still whisper about the time he accidentally killed a duck on the course, a reputation that has unfairly branded him the tour’s most notorious wildlife assassin. In a team environment he’ll embrace the pressure moments and happily volunteer for the hero shot.",
 };
 
+
+
+function getPlayerRoundPrediction(state, playerId, roundId) {
+  const player = getP(playerId);
+  const short = player?.short || "Legend";
+  const styleByPlayer = {
+    angus: "Big-driver energy forecast. If the timing clicks, you’re bullying par 5s today",
+    nick: "Patient Tiger-mode strategy expected. Boring golf in, big points out",
+    tom: "Executive decision-making round incoming. Commit to your lines and cash in",
+    callum: "Legal brief for today: play sensible to fat sides, then litigate with the putter",
+    jkelly: "Chaos index is high, but so is upside. Keep the first tee ball in play and ride it",
+    jturner: "Marketing says fireworks; scorecard says fairways first. A balanced campaign could go low",
+    chris: "Shot-making class is there. If the chirping stays outside your head, this could be a clinic",
+    luke: "Clutch gene alert. A couple of early circles and you’ll start calling your own headlines",
+    alex: "Multi-sport talent tax still unpaid. Another quietly elite points haul is very live",
+    lach: "Coach-hours are expected to convert today. Trust the work and avoid the over-explanation",
+    jason: "Ugly-swing, pretty-result potential remains elite. Keep it moving and steal points late",
+    cam: "Good-bloke vibes plus solid ball-striking is a dangerous combo. Sneaky podium watch",
+  };
+
+  const roundIndex = ROUNDS.findIndex(r => r.id === roundId);
+  let priorForm = "Settle in early, avoid doubles, and this round can build quickly.";
+  if (roundIndex > 0) {
+    const prevRound = ROUNDS[roundIndex - 1];
+    const prevScores = state.scores?.[prevRound.id]?.[playerId] || [];
+    const filled = prevScores.filter(s => holeFilled(s)).length;
+    if (filled > 0) {
+      const prevCourse = getCourse(prevRound.courseId);
+      const dH = courseHcp(state.handicaps?.[playerId], prevCourse, getTeeKey(state, prevCourse.id));
+      const prevPts = pStab(prevScores, prevCourse, dH);
+      if (filled === 18) {
+        if (prevPts >= 36) priorForm = `You’re coming in hot off ${prevPts} pts yesterday — stay aggressive when the green light appears.`;
+        else if (prevPts >= 30) priorForm = `Solid base with ${prevPts} pts yesterday. Clean up a couple of errors and you’re right in it.`;
+        else priorForm = `${prevPts} pts yesterday means today is a bounce-back script — simplify targets and rebuild momentum.`;
+      } else {
+        priorForm = `Previous round showed flashes over ${filled} holes. Fast start today and you can turn that into a full-card scorer.`;
+      }
+    }
+  }
+
+  const courseAngle = roundId === "r1"
+    ? "Prediction: survive the opening stretch, then make your move through the middle six."
+    : roundId === "r2"
+      ? "Prediction: this is moving day — one brave swing on the LD hole could flip your whole card."
+      : "Prediction: final-round nerves are real, so play boring targets and let everyone else panic.";
+
+  return `${short}, ${styleByPlayer[playerId] || "steady tempo and smart misses should travel well"}. ${priorForm} ${courseAngle}`;
+}
 const PLAYER_BIO_IMAGES = {
   angus: "./Angus Scott.png",
   tom: "./Tom Crawford.png",
@@ -1287,6 +1336,7 @@ function ScoresList({state,cur,isAdmin,onSelect}){
 function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [showHoleInfo, setShowHoleInfo] = useState(null); // hole index or null
+  const [showRoundKickoff, setShowRoundKickoff] = useState(false);
 
   const round=ROUNDS.find(r=>r.id===roundId);
   const course=getCourse(round.courseId);
@@ -1315,6 +1365,15 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
     tGross+=grossForHole(v,h.par);
   });
   const filled = scores.filter(s=>holeFilled(s)).length;
+
+  useEffect(() => {
+    if (!isMine) return;
+    const seen = JSON.parse(localStorage.getItem(ROUND_KICKOFF_SEEN_KEY) || "{}");
+    const roundPlayerKey = `${roundId}:${playerId}`;
+    if (filled > 0 || seen[roundPlayerKey]) return;
+    setShowRoundKickoff(true);
+    localStorage.setItem(ROUND_KICKOFF_SEEN_KEY, JSON.stringify({ ...seen, [roundPlayerKey]: true }));
+  }, [filled, isMine, playerId, roundId]);
 
   let pTotalPts=0,pTotalGross=0,pFilled=0;
   if(partnerId){
@@ -1384,6 +1443,39 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
             </div>
             <div style={{fontSize:14,color:"#475569",lineHeight:1.7}}>{HOLE_DESC[course.id]?.[showHoleInfo] || "No description available."}</div>
             <div style={{marginTop:12,fontSize:11,color:"#94a3b8",fontStyle:"italic"}}>{course.name}</div>
+          </div>
+        </div>
+      )}
+
+      {/* First-time round kickoff popup */}
+      {showRoundKickoff && (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.58)",zIndex:240,display:"flex",alignItems:"center",justifyContent:"center",padding:18}} onClick={()=>setShowRoundKickoff(false)}>
+          <div style={{background:"#fff",borderRadius:16,padding:"18px 16px",maxWidth:420,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.3)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8,marginBottom:10}}>
+              <div>
+                <div style={{fontSize:20,fontWeight:800,color:"#1e293b"}}>Good luck, {player?.short || "Legend"}! ⛳</div>
+                <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{round.courseName} · Round {round.num}</div>
+              </div>
+              <button onClick={()=>setShowRoundKickoff(false)} style={{width:30,height:30,borderRadius:15,border:"1px solid #e2e8f0",background:"#f8fafc",cursor:"pointer",color:"#64748b",fontSize:16}}>×</button>
+            </div>
+
+            <div style={{fontSize:13,color:"#334155",lineHeight:1.6,background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+              <strong>Round Predictions:</strong> {getPlayerRoundPrediction(state, playerId, roundId)}
+            </div>
+
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:10}}>
+              <div style={{background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:10,padding:"10px"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#1d4ed8",marginBottom:2}}>NTP Hole</div>
+                <div style={{fontSize:16,fontWeight:800,color:"#1e3a8a"}}>Hole {ntpH}</div>
+              </div>
+              <div style={{background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:10,padding:"10px"}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#c2410c",marginBottom:2}}>LD Hole</div>
+                <div style={{fontSize:16,fontWeight:800,color:"#9a3412"}}>Hole {ldH}</div>
+              </div>
+            </div>
+
+            <div style={{fontSize:12,color:"#475569",marginBottom:14}}>📝 Don’t forget to <strong>submit your score after hole 18</strong> so it counts on the leaderboard.</div>
+            <button onClick={()=>setShowRoundKickoff(false)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer"}}>Let’s Play</button>
           </div>
         </div>
       )}
@@ -1460,7 +1552,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
               )}
               <div style={{background:rowBg,borderRadius:12,padding:"14px 14px",border:"1px solid #e2e8f0"}}>
                 {/* My score row */}
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}>
                   <div style={{minWidth:72}}>
                     <div style={{display:"flex",alignItems:"center",gap:4}}>
                       <span style={{fontSize:18,fontWeight:800,color:"#1e293b"}}>{holeName(h.n)}</span>
@@ -1495,14 +1587,14 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                       <div style={{width:64,height:56,borderRadius:10,border:"1px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:700,color:isPU?"#94a3b8":"#1e293b",fontFamily:"'JetBrains Mono',monospace",background:"#f8faf8"}}>{isPU?"P":val||"—"}</div>
                     )}
                   </div>
-                  <div style={{minWidth:60,textAlign:"right"}}>
+                  <div style={{width:60,textAlign:"right",flexShrink:0}}>
                     {isPU?(<div><div style={{fontSize:18,fontWeight:700,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>0pts</div><div style={{fontSize:10,color:"#94a3b8"}}>Pickup</div></div>)
                     :val>0?(<div><div style={{fontSize:22,fontWeight:700,color:sColor(pts),fontFamily:"'JetBrains Mono',monospace"}}>{pts}pts</div><div style={{fontSize:10,fontWeight:600,color:sColor(pts)}}>{sLabel(pts)}</div></div>)
                     :<div style={{color:"#d1d5db"}}>—</div>}
                   </div>
                   {(isNtp||isLd)&&canEdit&&(
                     <button onClick={()=>{upd(s=>{if(isNtp){if(!s.ntpWinners)s.ntpWinners={};s.ntpWinners[ntpKey]=s.ntpWinners[ntpKey]===playerId?null:playerId;}else{if(!s.ldWinners)s.ldWinners={};s.ldWinners[ldKey]=s.ldWinners[ldKey]===playerId?null:playerId;}});}}
-                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${isNtp?(isNtpW?"#16a34a":"#d1d5db"):(isLdW?"#d97706":"#d1d5db")}`,background:isNtp?(isNtpW?"#f0fdf4":"#fff"):(isLdW?"#fffbeb":"#fff"),fontSize:9,fontWeight:600,color:isNtp?(isNtpW?"#16a34a":"#94a3b8"):(isLdW?"#d97706":"#94a3b8"),cursor:"pointer",whiteSpace:"nowrap"}}>
+                      style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${isNtp?(isNtpW?"#16a34a":"#d1d5db"):(isLdW?"#d97706":"#d1d5db")}`,background:isNtp?(isNtpW?"#f0fdf4":"#fff"):(isLdW?"#fffbeb":"#fff"),fontSize:9,fontWeight:600,color:isNtp?(isNtpW?"#16a34a":"#94a3b8"):(isLdW?"#d97706":"#94a3b8"),cursor:"pointer",whiteSpace:"nowrap",marginLeft:"auto"}}>
                       {isNtp?(isNtpW?"✓ NTP":"Claim NTP ⛳"):(isLdW?"✓ LD":"Claim LD 💣")}
                     </button>
                   )}
@@ -1918,7 +2010,7 @@ function TripSchedule({onBack}){
         <div style={{fontSize:12,color:"#475569",lineHeight:1.6}}>
           <div>🏠 <strong>Thu–Fri:</strong> AirBnB at St Andrews Beach</div>
           <div>🏨 <strong>Sat night:</strong> On-site rooms at Peninsula Kingswood</div>
-          <div>👔 <strong>PK Dress Code:</strong> Collared shirt, tailored shorts/pants, soft spikes</div>
+          <div>👔 <strong>PK Dress Code:</strong> They're stricter on dress code here. Golf attire or collared shirts/chinos etc.</div>
         </div>
       </div>
     </div>
