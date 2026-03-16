@@ -56,8 +56,10 @@ async function save(s) {
 
 const SK = "spinners-cup-2026-v6";
 const PLAYER_LOCK_KEY = "spinners-cup-2026-player-lock";
+const ACCESS_GRANTED_KEY = "spinners-cup-2026-access-granted";
 const ROUND_KICKOFF_SEEN_KEY = "spinners-cup-2026-round-kickoff";
 const ADMIN_CODE = "admin2026";
+const APP_PASSWORD = "Mornington2026";
 const LOGO = "./public/Artboard 1.png";
 const SPONSOR_LOGO = "./AirKelsoBlack.png";
 const BANNER_PHOTO_SIZE = 34;
@@ -627,8 +629,8 @@ function matchStatus(state, match, round) {
 
 const DEFAULT_STATE = {
   handicaps:{
-    angus:10,nick:8,tom:6,callum:14,jkelly:15,jturner:9,
-    chris:5,luke:11,alex:12,lach:13,jason:16,cam:7,
+    angus:4.1,nick:12.3,tom:14.3,callum:15.4,jkelly:35.4,jturner:17.8,
+    chris:1.5,luke:14.0,alex:15.6,lach:28.0,jason:14.6,cam:23.2,
   },
   scores:{},
   ntpWinners:{},
@@ -841,6 +843,7 @@ function App() {
   const [sub,setSub]=useState(null);
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
+  const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
 
   useEffect(()=>{
     let alive=true;
@@ -884,6 +887,7 @@ function App() {
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
+  if(!hasAccess) return <AccessGate onGrant={()=>{localStorage.setItem(ACCESS_GRANTED_KEY,"1");setHasAccess(true);}} />;
   if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
@@ -929,15 +933,45 @@ function App() {
   );
 }
 
+function AccessGate({onGrant}){
+  const [password,setPassword]=useState("");
+  const [err,setErr]=useState(false);
+
+  return(
+    <div style={{...S.app,background:"#f8faf8",display:"flex",flexDirection:"column"}}>
+      <div style={{padding:"48px 20px 32px",maxWidth:400,margin:"0 auto",flex:1,width:"100%",boxSizing:"border-box"}}>
+        <div style={{textAlign:"center",marginBottom:28}}>
+          <img src={LOGO} alt="Spinners Cup" style={{width:220,height:220,objectFit:"contain",marginBottom:8,display:"block",marginLeft:"auto",marginRight:"auto"}} />
+          <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:26,fontWeight:800,color:"#1a2e1a",margin:"0 0 4px"}}>Spinners Cup 2026</h1>
+          <p style={{fontSize:13,color:"#6b8a6e",margin:0}}>Enter password to continue</p>
+        </div>
+        <input
+          type="password"
+          value={password}
+          onChange={e=>{setPassword(e.target.value);setErr(false);}}
+          onKeyDown={e=>{if(e.key==="Enter"){if(password===APP_PASSWORD)onGrant();else setErr(true);}}}
+          placeholder="Event password"
+          style={{...S.input,marginBottom:10}}
+        />
+        <button
+          onClick={()=>{if(password===APP_PASSWORD)onGrant();else setErr(true);}}
+          style={{width:"100%",padding:"11px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14,minHeight:44}}
+        >
+          Enter
+        </button>
+        {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:10,textAlign:"center"}}>Incorrect password</p>}
+      </div>
+      <SponsorFooter />
+    </div>
+  );
+}
+
 function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectator,onAdmin}){
   const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);
   const live = !!state?.eventLive;
-  // Shuffle player order when not live so teams can't be guessed from ordering
-  const displayPlayers = live ? PLAYERS : [...PLAYERS].sort((a,b) => {
-    // Stable alphabetical-by-first-name shuffle that mixes teams
-    const order = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
-    return order.indexOf(a.id) - order.indexOf(b.id);
-  });
+  const playerOrder = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
+  const displayPlayers = playerOrder.map(id => getP(id)).filter(Boolean);
+  const [selectedPlayerId,setSelectedPlayerId]=useState(lockedPlayerId || "");
   return(
     <div style={{...S.app,background:"#f8faf8",display:"flex",flexDirection:"column"}}>
             <div style={{padding:"48px 20px 32px",maxWidth:400,margin:"0 auto",flex:1,width:"100%",boxSizing:"border-box"}}>
@@ -956,14 +990,26 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           )}
           <button onClick={onSpectator} aria-label="Open spectator mode" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",background:"#fff",color:"#334155",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>👀 Spectator</button>
         </div>
-        <p style={{fontSize:11,color:"#94a3b8",marginBottom:12,textAlign:"center"}}>Players: tap your name · Spectators: use spectator mode.</p>
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
-          {displayPlayers.map(p=>(
-            <button key={p.id} disabled={!!lockedPlayerId&&lockedPlayerId!==p.id} onClick={()=>onSelect(p.id)} style={{padding:"10px 12px",minHeight:52,borderRadius:10,border:"1px solid #e2e8f0",borderLeft:`3px solid ${live?(p.team==="blue"?"#D4A017":"#DC2626"):"#e2e8f0"}`,background:"#fff",fontSize:13,fontWeight:700,color:"#1e293b",cursor:!!lockedPlayerId&&lockedPlayerId!==p.id?"not-allowed":"pointer",opacity:!!lockedPlayerId&&lockedPlayerId!==p.id?0.45:1,textAlign:"left",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",gap:8}}>
-              <PlayerAvatar id={p.id} size={42} live={live} priority="high" />
-              {p.name}
-            </button>
-          ))}
+        <p style={{fontSize:11,color:"#94a3b8",marginBottom:12,textAlign:"center"}}>Players: select your name then submit · Spectators: use spectator mode.</p>
+        <div style={{marginBottom:20}}>
+          <select
+            value={selectedPlayerId}
+            disabled={!!lockedPlayerId}
+            onChange={e=>setSelectedPlayerId(e.target.value)}
+            style={{...S.input,marginBottom:10,cursor:lockedPlayerId?"not-allowed":"pointer",opacity:lockedPlayerId?0.7:1}}
+          >
+            <option value="">Select your name</option>
+            {displayPlayers.map(p=>(
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </select>
+          <button
+            onClick={()=>selectedPlayerId&&onSelect(selectedPlayerId)}
+            disabled={!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId)}
+            style={{width:"100%",padding:"11px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:(!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?"not-allowed":"pointer",fontSize:14,minHeight:44,opacity:(!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?0.55:1}}
+          >
+            Submit
+          </button>
         </div>
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
         {lockedPlayerId&&showA&&<button onClick={onUnlockSelection} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
