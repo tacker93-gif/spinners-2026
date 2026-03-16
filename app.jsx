@@ -1175,6 +1175,7 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
   const allIds=[...match.blue,...match.grey];
   const tk=getTeeKey(state,round.courseId);const bH=match.blue.map(id=>courseHcp(state.handicaps?.[id],course,tk)||0);
   const gH=match.grey.map(id=>courseHcp(state.handicaps?.[id],course,tk)||0);
+  const playerDailyHcp = Object.fromEntries(allIds.map(id => [id, courseHcp(state.handicaps?.[id], course, tk) || 0]));
   const mn=Math.min(...bH,...gH);
   const abH=bH.map(h=>h-mn),agH=gH.map(h=>h-mn);
   const res=matchStatus(state,match,round);
@@ -1208,21 +1209,26 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
               const pD=allIds.map((id,pi)=>{
                 const isB=match.blue.includes(id);
                 const adjH=isB?abH[match.blue.indexOf(id)]:agH[match.grey.indexOf(id)];
+                const dailyH = playerDailyHcp[id] || 0;
                 const gross=state.scores?.[round.id]?.[id]?.[i]||0;
                 const isPU=isPickup(gross);
-                const pts=isPU?0:sPts(gross,h.par,hStrokes(adjH,h));
-                return {gross,pts,isB,isPU,filled:holeFilled(gross)};
+                const matchPts=isPU?0:sPts(gross,h.par,hStrokes(adjH,h));
+                const displayPts=isPU?0:sPts(gross,h.par,hStrokes(dailyH,h));
+                return {gross,matchPts,displayPts,isB,isPU,filled:holeFilled(gross)};
               });
               const blueHas=pD.some(d=>d.isB&&d.filled);
               const greyHas=pD.some(d=>!d.isB&&d.filled);
               const bothScored=blueHas&&greyHas;
-              const bPts=pD.filter(d=>d.isB).map(d=>d.pts);
-              const gPts=pD.filter(d=>!d.isB).map(d=>d.pts);
-              const bestB=Math.max(...bPts),bestG=Math.max(...gPts);
+              const bMatchPts=pD.filter(d=>d.isB).map(d=>d.matchPts);
+              const gMatchPts=pD.filter(d=>!d.isB).map(d=>d.matchPts);
+              const bDisplayPts=pD.filter(d=>d.isB).map(d=>d.displayPts);
+              const gDisplayPts=pD.filter(d=>!d.isB).map(d=>d.displayPts);
+              const bestBMatch=Math.max(...bMatchPts),bestGMatch=Math.max(...gMatchPts);
+              const bestBDisplay=Math.max(...bDisplayPts),bestGDisplay=Math.max(...gDisplayPts);
               let hRes="",resCol="#94a3b8";
               if(bothScored){
-                if(bestB>bestG){runUp++;hRes="🟡";resCol="#B8860B";}
-                else if(bestG>bestB){runUp--;hRes="🔴";resCol="#B91C1C";}
+                if(bestBMatch>bestGMatch){runUp++;hRes="🟡";resCol="#B8860B";}
+                else if(bestGMatch>bestBMatch){runUp--;hRes="🔴";resCol="#B91C1C";}
                 else hRes="—";
               }
               return(
@@ -1232,13 +1238,13 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
                   {pD.map((d,pi)=>(
                     <td key={pi} style={S.td}>
                       {d.isPU?(<div><div style={{fontWeight:600,color:"#94a3b8"}}>P</div><div style={{fontSize:8,color:"#94a3b8"}}>0pts</div></div>)
-                      :d.gross>0?(<div><div style={{fontWeight:600,color:"#1e293b"}}>{d.gross}</div><div style={{fontSize:8,color:sColor(d.pts),fontWeight:600}}>{d.pts}pts</div></div>):(
+                      :d.gross>0?(<div><div style={{fontWeight:600,color:"#1e293b"}}>{d.gross}</div><div style={{fontSize:8,color:sColor(d.displayPts),fontWeight:600}}>{d.displayPts}pts</div></div>):(
                         isAdmin?<input type="number" inputMode="numeric" value="" min="1" max="15" style={S.tblIn} onChange={e=>{const v=parseInt(e.target.value)||0;const id=allIds[pi];upd(s=>{if(!s.scores[round.id])s.scores[round.id]={};if(!s.scores[round.id][id])s.scores[round.id][id]=Array(18).fill(0);s.scores[round.id][id][i]=Math.max(0,Math.min(15,v));});}}/>:<span style={{color:"#d1d5db"}}>—</span>
                       )}
                     </td>
                   ))}
-                  <td style={{...S.td,fontWeight:700,color:"#B8860B",background:bestB>bestG&&bothScored?"#FFFBEB":"transparent"}}>{bothScored?bestB:blueHas?bestB:"—"}</td>
-                  <td style={{...S.td,fontWeight:700,color:"#B91C1C",background:bestG>bestB&&bothScored?"#FEF2F2":"transparent"}}>{bothScored?bestG:greyHas?bestG:"—"}</td>
+                  <td style={{...S.td,fontWeight:700,color:"#B8860B",background:bestBMatch>bestGMatch&&bothScored?"#FFFBEB":"transparent"}}>{bothScored?bestBDisplay:blueHas?bestBDisplay:"—"}</td>
+                  <td style={{...S.td,fontWeight:700,color:"#B91C1C",background:bestGMatch>bestBMatch&&bothScored?"#FEF2F2":"transparent"}}>{bothScored?bestGDisplay:greyHas?bestGDisplay:"—"}</td>
                   <td style={{...S.td,textAlign:"center"}}>{bothScored&&<div>{hRes}<div style={{fontSize:7,color:runUp>0?"#B8860B":runUp<0?"#B91C1C":"#16a34a",fontWeight:700}}>{runUp===0?"AS":runUp>0?`${getTeamInitial(state, "blue")}+${runUp}`:`${getTeamInitial(state, "grey")}+${Math.abs(runUp)}`}</div></div>}</td>
                 </tr>
               );
@@ -1247,11 +1253,11 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
             {(() => {
               const playerTotals = allIds.map((id, pi) => {
                 const isB = match.blue.includes(id);
-                const adjH = isB ? abH[match.blue.indexOf(id)] : agH[match.grey.indexOf(id)];
+                const dailyH = playerDailyHcp[id] || 0;
                 let totalPts = 0;
                 course.holes.forEach((h, i) => {
                   const gross = state.scores?.[round.id]?.[id]?.[i] || 0;
-                  totalPts += sPts(gross, h.par, hStrokes(adjH,h));
+                  totalPts += sPts(gross, h.par, hStrokes(dailyH,h));
                 });
                 return { totalPts, isB };
               });
@@ -1259,9 +1265,9 @@ function MatchView({state,upd,isAdmin,matchId,onBack}){
               course.holes.forEach((h, i) => {
                 const bPtsArr = allIds.map((id, pi) => {
                   const isB = match.blue.includes(id);
-                  const adjH = isB ? abH[match.blue.indexOf(id)] : agH[match.grey.indexOf(id)];
+                  const dailyH = playerDailyHcp[id] || 0;
                   const gross = state.scores?.[round.id]?.[id]?.[i] || 0;
-                  return { pts: sPts(gross, h.par, hStrokes(adjH,h)), isB };
+                  return { pts: sPts(gross, h.par, hStrokes(dailyH,h)), isB };
                 });
                 blueTotalBB += Math.max(...bPtsArr.filter(d => d.isB).map(d => d.pts));
                 greyTotalBB += Math.max(...bPtsArr.filter(d => !d.isB).map(d => d.pts));
