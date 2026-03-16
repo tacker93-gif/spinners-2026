@@ -405,13 +405,46 @@ function PlayerAvatar({id, size=32, live=true, border=true, priority="auto"}) {
   const borderColor = live && border ? teamColor : "#d1d5db";
   const initials = (player?.name || "?").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase();
   const loading = priority === "high" ? "eager" : "lazy";
+  const [visible, setVisible] = useState(priority === "high");
+  const [failed, setFailed] = useState(false);
+  const holderRef = useRef(null);
+
+  useEffect(() => {
+    if (visible || !src || !holderRef.current) return;
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const lowBandwidth = !!(connection?.saveData || ["slow-2g", "2g"].includes(connection?.effectiveType));
+    if (lowBandwidth && priority !== "high") return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "140px" }
+    );
+    observer.observe(holderRef.current);
+    return () => observer.disconnect();
+  }, [priority, src, visible]);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
   return src ? (
-    <img src={src} alt={player?.name || "Player"} loading={loading} fetchPriority={priority} decoding="async" width={size} height={size} style={{
-      width:size, height:size, borderRadius:"50%",
-      border:`2px solid ${borderColor}`,
-      objectFit:"cover", flexShrink:0,
-      filter: live ? "none" : "grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)",
-    }}/>
+    <div ref={holderRef} style={{width:size,height:size,flexShrink:0}}>
+      {!visible || failed ? (
+        <div aria-label={player?.name || "Player"} style={{width:size,height:size,borderRadius:"50%",background:"#e2e8f0",border:`2px solid ${borderColor}`,flexShrink:0,display:"grid",placeItems:"center",color:"#475569",fontSize:Math.max(10, Math.round(size*0.32)),fontWeight:700}}>{initials}</div>
+      ) : (
+        <img src={src} alt={player?.name || "Player"} loading={loading} fetchPriority={priority} decoding="async" width={size} height={size} onError={() => setFailed(true)} style={{
+          width:size, height:size, borderRadius:"50%",
+          border:`2px solid ${borderColor}`,
+          objectFit:"cover", flexShrink:0,
+          filter: live ? "none" : "grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)",
+        }}/>
+      )}
+    </div>
   ) : (
     <div aria-label={player?.name || "Player"} style={{width:size,height:size,borderRadius:"50%",background:"#e2e8f0",border:`2px solid ${borderColor}`,flexShrink:0,display:"grid",placeItems:"center",color:"#475569",fontSize:Math.max(10, Math.round(size*0.32)),fontWeight:700}}>{initials}</div>
   );
@@ -861,22 +894,6 @@ function App() {
     if(!cur) return;
     load().then(s=>{if(s)setState(DC(s));});
   },[cur,tab,sub]);
-
-  useEffect(() => {
-    const preload = () => {
-      Object.values(PLAYER_PHOTOS).forEach((src) => {
-        const img = new Image();
-        img.src = src;
-        img.decoding = "async";
-      });
-    };
-    if (typeof window.requestIdleCallback === "function") {
-      const idleId = window.requestIdleCallback(preload, { timeout: 1200 });
-      return () => window.cancelIdleCallback(idleId);
-    }
-    const timer = window.setTimeout(preload, 400);
-    return () => window.clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (!cur || cur === "admin" || cur === "spectator") return;
