@@ -347,14 +347,15 @@ function TeamPairDisplay({ids,live,color,align="left",state,roundId,showBadges=f
   );
 }
 
-function PlayerAvatar({id, size=32, live=true, border=true}) {
+function PlayerAvatar({id, size=32, live=true, border=true, priority="auto"}) {
   const player = getP(id);
   const src = PLAYER_PHOTOS[id];
   const teamColor = player?.team === "blue" ? "#D4A017" : "#DC2626";
   const borderColor = live && border ? teamColor : "#d1d5db";
   const initials = (player?.name || "?").split(" ").map(part => part[0]).slice(0,2).join("").toUpperCase();
+  const loading = priority === "high" ? "eager" : "lazy";
   return src ? (
-    <img src={src} alt={player?.name || "Player"} loading="lazy" decoding="async" style={{
+    <img src={src} alt={player?.name || "Player"} loading={loading} fetchPriority={priority} decoding="async" width={size} height={size} style={{
       width:size, height:size, borderRadius:"50%",
       border:`2px solid ${borderColor}`,
       objectFit:"cover", flexShrink:0,
@@ -810,6 +811,22 @@ function App() {
   },[cur,tab,sub]);
 
   useEffect(() => {
+    const preload = () => {
+      Object.values(PLAYER_PHOTOS).forEach((src) => {
+        const img = new Image();
+        img.src = src;
+        img.decoding = "async";
+      });
+    };
+    if (typeof window.requestIdleCallback === "function") {
+      const idleId = window.requestIdleCallback(preload, { timeout: 1200 });
+      return () => window.cancelIdleCallback(idleId);
+    }
+    const timer = window.setTimeout(preload, 400);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
     if (!cur || cur === "admin" || cur === "spectator") return;
     const released = Object.values(state.dailySummaries || {}).sort((a,b) => new Date(b.releasedAt||0) - new Date(a.releasedAt||0));
     const unseen = released.find(s => !state.summaryReads?.[cur]?.[s.roundId]);
@@ -894,7 +911,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:20}}>
           {displayPlayers.map(p=>(
             <button key={p.id} disabled={!!lockedPlayerId&&lockedPlayerId!==p.id} onClick={()=>onSelect(p.id)} style={{padding:"10px 12px",minHeight:52,borderRadius:10,border:"1px solid #e2e8f0",borderLeft:`3px solid ${live?(p.team==="blue"?"#D4A017":"#DC2626"):"#e2e8f0"}`,background:"#fff",fontSize:13,fontWeight:700,color:"#1e293b",cursor:!!lockedPlayerId&&lockedPlayerId!==p.id?"not-allowed":"pointer",opacity:!!lockedPlayerId&&lockedPlayerId!==p.id?0.45:1,textAlign:"left",fontFamily:"'DM Sans',sans-serif",display:"flex",alignItems:"center",gap:8}}>
-              <PlayerAvatar id={p.id} size={42} live={live} />
+              <PlayerAvatar id={p.id} size={42} live={live} priority="high" />
               {p.name}
             </button>
           ))}
@@ -920,7 +937,7 @@ function Header({isAdmin,name,playerId,live,onBack}){
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
         </div>
-        <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
+        <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
       </div>
     </div>
   );
