@@ -1,10 +1,11 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
-// ─── Supabase Configuration ──────────────────────────────────
-// INSTRUCTIONS: Replace these with your Supabase project values (see setup guide)
-const SUPABASE_URL = "https://wgcrujpmqftelxtutgjr.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnY3J1anBtcWZ0ZWx4dHV0Z2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODUxMDgsImV4cCI6MjA4ODg2MTEwOH0.65Z6in9zU0Fy4LtjuWPyTvrNO-2aHhgJZfjga9yrI5Q";
-const DB_ROW_ID = "spinners-cup-2026";
+const runtimeConfig = window.__SPINNERS_CONFIG || {};
+const SUPABASE_URL = runtimeConfig.supabaseUrl || window.localStorage.getItem("spinners-supabase-url") || "";
+const SUPABASE_KEY = runtimeConfig.supabaseKey || window.localStorage.getItem("spinners-supabase-key") || "";
+const DB_ROW_ID = runtimeConfig.dbRowId || window.localStorage.getItem("spinners-db-row-id") || "spinners-cup-2026";
+const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
+const SYNC_EVENT = "spinners-sync-status";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -35,31 +36,98 @@ async function load() {
         if (rows?.[0]?.data && Object.keys(rows[0].data).length > 0) return rows[0].data;
       }
     }
+    const pending = getPendingSave();
+    return pending?.state || null;
+  } catch {
+    const pending = getPendingSave();
+    return pending?.state || null;
+  }
+}
+
+function emitSyncStatus(status) {
+  window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { status } }));
+}
+
+function queuePendingSave(state) {
+  try {
+    localStorage.setItem(SAVE_QUEUE_KEY, JSON.stringify({ state, at: Date.now() }));
+    emitSyncStatus("queued");
+  } catch {}
+}
+
+function clearPendingSave() {
+  try {
+    localStorage.removeItem(SAVE_QUEUE_KEY);
+    emitSyncStatus("synced");
+  } catch {}
+}
+
+function getPendingSave() {
+  try {
+    const raw = localStorage.getItem(SAVE_QUEUE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
     return null;
-  } catch { return null; }
+  }
+}
+
+async function writeRemoteState(nextState) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return true;
+  const res = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
+    {
+      method: "PATCH",
+      headers: supabaseHeaders,
+      body: JSON.stringify({ data: nextState, updated_at: new Date().toISOString() }),
+    }
+  );
+  return !!res?.ok;
+}
+
+async function flushQueuedSave() {
+  const pending = getPendingSave();
+  if (!pending?.state) return true;
+  if (!navigator.onLine) {
+    emitSyncStatus("queued");
+    return false;
+  }
+  try {
+    emitSyncStatus("syncing");
+    const ok = await writeRemoteState(pending.state);
+    if (ok) clearPendingSave();
+    else emitSyncStatus("queued");
+    return ok;
+  } catch {
+    emitSyncStatus("queued");
+    return false;
+  }
 }
 
 async function save(s) {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return;
   try {
-    if (SUPABASE_URL && SUPABASE_KEY) {
-      await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
-        {
-          method: "PATCH",
-          headers: supabaseHeaders,
-          body: JSON.stringify({ data: s, updated_at: new Date().toISOString() }),
-        }
-      );
+    if (!navigator.onLine) {
+      queuePendingSave(s);
+      return;
     }
-  } catch {}
+    emitSyncStatus("syncing");
+    const ok = await writeRemoteState(s);
+    if (!ok) {
+      queuePendingSave(s);
+      return;
+    }
+    clearPendingSave();
+  } catch {
+    queuePendingSave(s);
+  }
 }
 
 const SK = "spinners-cup-2026-v6";
 const PLAYER_LOCK_KEY = "spinners-cup-2026-player-lock";
 const ACCESS_GRANTED_KEY = "spinners-cup-2026-access-granted";
 const ROUND_KICKOFF_SEEN_KEY = "spinners-cup-2026-round-kickoff";
-const ADMIN_CODE = "admin2026";
-const APP_PASSWORD = "Mornington2026";
+const ADMIN_CODE = runtimeConfig.adminCode || window.localStorage.getItem("spinners-admin-code") || "";
+const APP_PASSWORD = runtimeConfig.appPassword || window.localStorage.getItem("spinners-app-password") || "";
 const LOGO = "./public/Artboard 1.png";
 const SPONSOR_LOGO = "./AirKelsoBlack.png";
 const BANNER_PHOTO_SIZE = 34;
@@ -671,12 +739,62 @@ const DEFAULT_STATE = {
   chulligans:{},
   submitted:{},
   dailySummaries:{},
+  sledgeFeed:[],
+  sledgeMeta:{},
   summaryReads:{},
   eventLive:false,
   roundScoringLive:{r1:true,r2:false,r3:false},
   tees:{standrews:"white",pk_south:"white",pk_north:"white"},
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
+
+function feedMessageForPoints(playerShort, points, holeNum) {
+  if (points >= 4) return `🔥 ${playerShort} just detonated hole ${holeNum} with ${points} pts. That's suspiciously professional.`;
+  if (points === 3) return `😎 ${playerShort} birdied hole ${holeNum}. Chat has gone very quiet.`;
+  if (points === 0) return `💀 ${playerShort} wiped hole ${holeNum}. Emergency vibes only.`;
+  return null;
+}
+
+function maybePushScoreSledge(state, { roundId, playerId, holeIdx, prevVal, nextVal }) {
+  if (!state?.eventLive) return;
+  if (!holeFilled(nextVal)) return;
+  if (nextVal === prevVal) return;
+
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return;
+
+  const course = getCourse(round.courseId);
+  const hole = course.holes[holeIdx];
+  if (!hole) return;
+
+  const dailyHcp = courseHcp(state.handicaps?.[playerId], course, getTeeKey(state, course.id));
+  const points = sPts(nextVal, hole.par, hStrokes(dailyHcp, hole));
+  const prevPoints = holeFilled(prevVal) ? sPts(prevVal, hole.par, hStrokes(dailyHcp, hole)) : null;
+  if (prevPoints === points) return;
+
+  const msg = feedMessageForPoints(getP(playerId)?.short || "Someone", points, hole.n);
+  if (!msg) return;
+
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  if (!state.sledgeFeed) state.sledgeFeed = [];
+
+  const metaKey = `${roundId}:${playerId}`;
+  const last = state.sledgeMeta[metaKey] || { lastHole: 0, at: 0 };
+  const now = Date.now();
+  if ((hole.n - last.lastHole) < 2) return;
+  if ((now - last.at) < 90 * 1000) return;
+
+  state.sledgeMeta[metaKey] = { lastHole: hole.n, at: now };
+  state.sledgeFeed.unshift({
+    id: `${now}_${roundId}_${playerId}_${hole.n}`,
+    roundId,
+    playerId,
+    hole: hole.n,
+    message: msg,
+    at: new Date().toISOString(),
+  });
+  state.sledgeFeed = state.sledgeFeed.slice(0, 14);
+}
 
 function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
@@ -877,6 +995,8 @@ function App() {
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
+  const [netOnline,setNetOnline]=useState(()=>navigator.onLine);
+  const [syncStatus,setSyncStatus]=useState(()=>getPendingSave()?.state ? "queued" : "synced");
 
   useEffect(()=>{
     let alive=true;
@@ -896,6 +1016,27 @@ function App() {
   },[cur,tab,sub]);
 
   useEffect(() => {
+    const onOnline = () => {
+      setNetOnline(true);
+      flushQueuedSave();
+    };
+    const onOffline = () => {
+      setNetOnline(false);
+      setSyncStatus("queued");
+    };
+    const onSync = (e) => setSyncStatus(e?.detail?.status || "synced");
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    window.addEventListener(SYNC_EVENT, onSync);
+    flushQueuedSave();
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      window.removeEventListener(SYNC_EVENT, onSync);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!cur || cur === "admin" || cur === "spectator") return;
     const released = Object.values(state.dailySummaries || {}).sort((a,b) => new Date(b.releasedAt||0) - new Date(a.releasedAt||0));
     const unseen = released.find(s => !state.summaryReads?.[cur]?.[s.roundId]);
@@ -911,7 +1052,7 @@ function App() {
 
   return (
     <div style={S.app}>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} netOnline={netOnline} syncStatus={syncStatus} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
@@ -953,6 +1094,18 @@ function App() {
 function AccessGate({onGrant}){
   const [password,setPassword]=useState("");
   const [err,setErr]=useState(false);
+  if (!APP_PASSWORD) {
+    return (
+      <div style={{...S.app,background:"#f8faf8",display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"48px 20px 32px",maxWidth:400,margin:"0 auto",flex:1,width:"100%",boxSizing:"border-box",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+          <img src={LOGO} alt="Spinners Cup" style={{width:220,height:220,objectFit:"contain",margin:"0 auto 10px",display:"block"}} />
+          <p style={{fontSize:13,color:"#64748b",textAlign:"center",marginBottom:16}}>No app password configured. Tap continue to open the event app.</p>
+          <button onClick={onGrant} style={{width:"100%",padding:"12px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14,minHeight:44}}>Continue</button>
+        </div>
+        <SponsorFooter />
+      </div>
+    );
+  }
 
   return(
     <div style={{...S.app,background:"#f8faf8",display:"flex",flexDirection:"column"}}>
@@ -1002,7 +1155,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           {!showA?(<button onClick={()=>setShowA(true)} aria-label="Open admin login" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",color:"#64748b",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>🔒 Admin</button>):(
             <div style={{display:"flex",gap:8,gridColumn:"span 2"}}>
               <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
-              <button onClick={()=>{if(code===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
+              <button onClick={()=>{if(ADMIN_CODE && code===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
             </div>
           )}
           <button onClick={onSpectator} aria-label="Open spectator mode" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",background:"#fff",color:"#334155",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>👀 Spectator</button>
@@ -1030,14 +1183,16 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
         </div>
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
         {lockedPlayerId&&showA&&<button onClick={onUnlockSelection} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
-        {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>Incorrect code</p>}
+        {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>{ADMIN_CODE ? "Incorrect code" : "Admin code not configured"}</p>}
       </div>
       <SponsorFooter />
     </div>
   );
 }
 
-function Header({isAdmin,name,playerId,live,onBack}){
+function Header({isAdmin,name,playerId,live,netOnline,syncStatus,onBack}){
+  const syncLabel = !netOnline ? "Offline" : syncStatus === "syncing" ? "Syncing" : syncStatus === "queued" ? "Pending sync" : "Live";
+  const syncColor = !netOnline ? "#b45309" : syncStatus === "queued" ? "#b45309" : syncStatus === "syncing" ? "#1d4ed8" : "#15803d";
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
@@ -1048,6 +1203,7 @@ function Header({isAdmin,name,playerId,live,onBack}){
         <div style={{textAlign:"center"}}>
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
+          <p style={{fontSize:9,color:syncColor,margin:0,fontWeight:700}}>{syncLabel}</p>
         </div>
         <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
       </div>
@@ -1119,6 +1275,7 @@ function CupScreen({state,onMatch,live,isAdmin}){
   const blockFill=(points,idx)=>clamp(points-idx,0,1);
   const segStep=0.5;
   const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
+  const sledgeFeed = (state.sledgeFeed || []).slice(0, 5);
 
   const statusSeg=(side,segVal)=>{
     const official=side==="blue"?bT:gT;
@@ -1176,6 +1333,19 @@ function CupScreen({state,onMatch,live,isAdmin}){
           </div>
         )}
       </div>
+
+      {live && sledgeFeed.length > 0 && (
+        <div style={{background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:12,padding:"10px 12px",marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:800,color:"#9a3412",marginBottom:6}}>📣 Live Sledge Feed</div>
+          <div style={{display:"flex",flexDirection:"column",gap:6}}>
+            {sledgeFeed.map(item => (
+              <div key={item.id} style={{fontSize:12,color:"#7c2d12",lineHeight:1.35}}>
+                {item.message}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div style={{marginTop:-8,marginBottom:14,fontSize:11,color:"#64748b",fontStyle:"italic"}}>Click match for detailed scorecard.</div>
 
@@ -1473,7 +1643,9 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
     upd(s => {
       if (!s.scores[roundId]) s.scores[roundId] = {};
       if (!s.scores[roundId][pid]) s.scores[roundId][pid] = Array(18).fill(0);
+      const prevVal = s.scores[roundId][pid][holeIdx] || 0;
       s.scores[roundId][pid][holeIdx] = val;
+      maybePushScoreSledge(s, { roundId, playerId: pid, holeIdx, prevVal, nextVal: val });
     });
   };
 
