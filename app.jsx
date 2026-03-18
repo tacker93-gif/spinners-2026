@@ -275,19 +275,67 @@ const PLAYER_BIOS = {
 function getPlayerRoundPrediction(state, playerId, roundId) {
   const player = getP(playerId);
   const short = player?.short || "Legend";
-  const styleByPlayer = {
-    angus: "Big-driver energy forecast. If the timing clicks, you’re bullying par 5s today",
-    nick: "Patient Tiger-mode strategy expected. Boring golf in, big points out",
-    tom: "Executive decision-making round incoming. Commit to your lines and cash in",
-    callum: "Legal brief for today: play sensible to fat sides, then litigate with the putter",
-    jkelly: "Chaos index is high, but so is upside. Keep the first tee ball in play and ride it",
-    jturner: "Marketing says fireworks; scorecard says fairways first. A balanced campaign could go low",
-    chris: "Shot-making class is there. If the chirping stays outside your head, this could be a clinic",
-    luke: "Clutch gene alert. A couple of early circles and you’ll start calling your own headlines",
-    alex: "Multi-sport talent tax still unpaid. Another quietly elite points haul is very live",
-    lach: "Coach-hours are expected to convert today. Trust the work and avoid the over-explanation",
-    jason: "Ugly-swing, pretty-result potential remains elite. Keep it moving and steal points late",
-    cam: "Good-bloke vibes plus solid ball-striking is a dangerous combo. Sneaky podium watch",
+  const roundCopyByPlayer = {
+    angus: {
+      r1: "Prediction: opening-day bombs are on the menu, so aim the big stick at every generous fairway and feast on the par 5s.",
+      r2: "Prediction: moving day suits your chaos — one towering launch on the LD hole could turn this card into a highlight reel.",
+      r3: "Prediction: final round is pure freedom golf for you — swing hard, keep the mood loose, and let the rest of the field tense up.",
+    },
+    nick: {
+      r1: "Prediction: a Tiger-approved opener is coming — fairways, center greens, and a quietly excellent card by the turn.",
+      r2: "Prediction: moving day is built for percentage golf with one calculated ambush when the hole finally gives you a green light.",
+      r3: "Prediction: final round patience could be lethal — boring targets, tidy pars, then pounce when everyone else starts chasing.",
+    },
+    tom: {
+      r1: "Prediction: first-round boardroom energy — make decisive swings early and you could be monetising birdie chances all afternoon.",
+      r2: "Prediction: moving day should reward your conviction, especially if you start treating tucked flags like acquisition targets.",
+      r3: "Prediction: final round has CEO closer written all over it — commit to the smart line and cash out on the back nine.",
+    },
+    callum: {
+      r1: "Prediction: opening arguments are simple — play to the fat side, avoid the double, and let the putter present the closing statement.",
+      r2: "Prediction: moving day could become your best brief yet if you stay disciplined until one brave swing changes the evidence.",
+      r3: "Prediction: final round is for courtroom composure — no heroics unless invited, then bury the field with procedural pars.",
+    },
+    jkelly: {
+      r1: "Prediction: first-round chaos will absolutely knock, but if the opening tee ball behaves you’ve got a genuine redemption script brewing.",
+      r2: "Prediction: moving day might get gloriously weird for you — survive the messy holes and suddenly the card could catch fire.",
+      r3: "Prediction: final round feels made for all-or-nothing Kelso theatre, just with slightly fewer disasters before the hero moment.",
+    },
+    jturner: {
+      r1: "Prediction: opening day needs a soft launch — market the fireworks later and start with a fairway-first campaign.",
+      r2: "Prediction: moving day is when the brand can really scale — one hot stretch through the middle could have you selling a miracle round.",
+      r3: "Prediction: final round calls for a strong finish and even stronger spin — close with substance first, slogans second.",
+    },
+    chris: {
+      r1: "Prediction: a classy opener is looming — stripe a few early irons and the group will remember why everyone says you’re the purest striker here.",
+      r2: "Prediction: moving day should be your stage if the sledging stays background noise and the swing stays front-page news.",
+      r3: "Prediction: final round is all about nerve control — keep the head quiet, trust the talent, and this could look annoyingly easy.",
+    },
+    luke: {
+      r1: "Prediction: opening day has big-game guard energy — stack a couple of early circles and you’ll start demanding the ball on every key hole.",
+      r2: "Prediction: moving day is made for your clutch gene, especially if one aggressive line reminds everyone you came to headline the trip.",
+      r3: "Prediction: final round theatre suits you perfectly — embrace the pressure, call your shot internally, and let the moments find you.",
+    },
+    alex: {
+      r1: "Prediction: the annoyingly talented opener is live — minimal fuss, crisp contact, and another card that looks easier than it should.",
+      r2: "Prediction: moving day could quietly become an Alex masterclass, with clean ball-striking doing the damage before anyone notices.",
+      r3: "Prediction: final round points haul feels very real if you keep doing the boring elite stuff while others start forcing it.",
+    },
+    lach: {
+      r1: "Prediction: opening day is a perfect time to let the coach-hours do the talking and save the technical explanation for the drinks cart.",
+      r2: "Prediction: moving day could reward your prep in a big way — trust the stock shot and resist the urge to oversell every swing thought.",
+      r3: "Prediction: final round is about conviction over commentary — pick the shape, swing it, and let the scorecard close the deal.",
+    },
+    jason: {
+      r1: "Prediction: ugly-swing optics aside, the opener has classic Jason sneak-attack potential if the ball keeps obeying your strange little system.",
+      r2: "Prediction: moving day could get scrappy in exactly your language — keep nicking points and suddenly you’re ruining someone else’s plans.",
+      r3: "Prediction: final round only needs one thing from you: keep the swing weird, the card tidy, and the late-hole steals coming.",
+    },
+    cam: {
+      r1: "Prediction: opening day should suit your good-bloke rhythm — steady ball-striking, no drama, and a card that sneaks into contention.",
+      r2: "Prediction: moving day has defender energy written all over it, especially if the putter warms up before the chatter does.",
+      r3: "Prediction: final round could become a proper title-defence grind — stay patient, keep smiling, and make everyone earn every point.",
+    },
   };
 
   const roundIndex = ROUNDS.findIndex(r => r.id === roundId);
@@ -310,13 +358,8 @@ function getPlayerRoundPrediction(state, playerId, roundId) {
     }
   }
 
-  const courseAngle = roundId === "r1"
-    ? "Prediction: survive the opening stretch, then make your move through the middle six."
-    : roundId === "r2"
-      ? "Prediction: this is moving day — one brave swing on the LD hole could flip your whole card."
-      : "Prediction: final-round nerves are real, so play boring targets and let everyone else panic.";
-
-  return `${short}, ${styleByPlayer[playerId] || "steady tempo and smart misses should travel well"}. ${priorForm} ${courseAngle}`;
+  const roundSpecific = roundCopyByPlayer[playerId]?.[roundId] || "Prediction: steady tempo and smart misses should travel well today.";
+  return `${short}, ${roundSpecific} ${priorForm}`;
 }
 const PLAYER_BIO_IMAGES = {
   angus: "./Angus Scott.png",
@@ -1335,11 +1378,21 @@ function AccessGate({onGrant}){
 }
 
 function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectator,onAdmin}){
-  const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);
+  const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);const [unlockReady,setUnlockReady]=useState(false);
   const live = !!state?.eventLive;
   const playerOrder = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
   const displayPlayers = playerOrder.map(id => getP(id)).filter(Boolean);
   const [selectedPlayerId,setSelectedPlayerId]=useState(lockedPlayerId || "");
+  const verifyAdminCode = () => {
+    if (ADMIN_CODE && code.trim() === ADMIN_CODE) {
+      setErr(false);
+      setUnlockReady(true);
+      return true;
+    }
+    setUnlockReady(false);
+    setErr(true);
+    return false;
+  };
   return(
     <div style={{...S.app,background:"#f8faf8",display:"flex",flexDirection:"column"}}>
             <div style={{padding:"48px 20px 32px",maxWidth:400,margin:"0 auto",flex:1,width:"100%",boxSizing:"border-box"}}>
@@ -1352,8 +1405,8 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:6}}>
           {!showA?(<button onClick={()=>setShowA(true)} aria-label="Open admin login" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",color:"#64748b",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>🔒 Admin</button>):(
             <div style={{display:"flex",gap:8,gridColumn:"span 2"}}>
-              <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
-              <button onClick={()=>{if(ADMIN_CODE && code.trim()===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
+              <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);setUnlockReady(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
+              <button onClick={()=>{if(verifyAdminCode())onAdmin(code);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
             </div>
           )}
           <button onClick={onSpectator} aria-label="Open spectator mode" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",background:"#fff",color:"#334155",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>👀 Spectator</button>
@@ -1380,7 +1433,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           </button>
         </div>
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
-        {lockedPlayerId&&showA&&<button onClick={onUnlockSelection} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:"#fff",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
+        {lockedPlayerId&&showA&&<button onClick={()=>{if(verifyAdminCode())onUnlockSelection();}} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:unlockReady?"#fff":"#fff5f5",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
         {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>{ADMIN_CODE ? "Incorrect code" : "Admin code not configured"}</p>}
       </div>
       <SponsorFooter />
@@ -1929,6 +1982,8 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                 <div style={{fontSize:16,fontWeight:800,color:"#9a3412"}}>Hole {ldH}</div>
               </div>
             </div>
+
+            <div style={{fontSize:11,color:"#7c2d12",background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:10,padding:"9px 10px",marginBottom:10}}>🏁 If you win NTP or LD, remember to <strong>claim it in the app</strong> during the round so it gets counted.</div>
 
             <div style={{fontSize:12,color:"#475569",marginBottom:14}}>📝 Don’t forget to <strong>submit your score after hole 18</strong> so it counts on the leaderboard.</div>
             <button onClick={()=>setShowRoundKickoff(false)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer"}}>Let’s Play</button>
