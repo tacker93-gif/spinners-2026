@@ -5,7 +5,6 @@ const SUPABASE_URL = runtimeConfig.supabaseUrl || window.localStorage.getItem("s
 const SUPABASE_KEY = runtimeConfig.supabaseKey || window.localStorage.getItem("spinners-supabase-key") || "";
 const DB_ROW_ID = runtimeConfig.dbRowId || window.localStorage.getItem("spinners-db-row-id") || "spinners-cup-2026";
 const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
-const SYNC_EVENT = "spinners-sync-status";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -44,21 +43,15 @@ async function load() {
   }
 }
 
-function emitSyncStatus(status) {
-  window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { status } }));
-}
-
 function queuePendingSave(state) {
   try {
     localStorage.setItem(SAVE_QUEUE_KEY, JSON.stringify({ state, at: Date.now() }));
-    emitSyncStatus("queued");
   } catch {}
 }
 
 function clearPendingSave() {
   try {
     localStorage.removeItem(SAVE_QUEUE_KEY);
-    emitSyncStatus("synced");
   } catch {}
 }
 
@@ -87,18 +80,12 @@ async function writeRemoteState(nextState) {
 async function flushQueuedSave() {
   const pending = getPendingSave();
   if (!pending?.state) return true;
-  if (!navigator.onLine) {
-    emitSyncStatus("queued");
-    return false;
-  }
+  if (!navigator.onLine) return false;
   try {
-    emitSyncStatus("syncing");
     const ok = await writeRemoteState(pending.state);
     if (ok) clearPendingSave();
-    else emitSyncStatus("queued");
     return ok;
   } catch {
-    emitSyncStatus("queued");
     return false;
   }
 }
@@ -110,7 +97,6 @@ async function save(s) {
       queuePendingSave(s);
       return;
     }
-    emitSyncStatus("syncing");
     const ok = await writeRemoteState(s);
     if (!ok) {
       queuePendingSave(s);
@@ -748,52 +734,131 @@ const DEFAULT_STATE = {
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
 
-function feedMessageForPoints(playerShort, points, holeNum) {
-  if (points >= 4) return `🔥 ${playerShort} just detonated hole ${holeNum} with ${points} pts. That's suspiciously professional.`;
-  if (points === 3) return `😎 ${playerShort} birdied hole ${holeNum}. Chat has gone very quiet.`;
-  if (points === 0) return `💀 ${playerShort} wiped hole ${holeNum}. Emergency vibes only.`;
-  return null;
+const SLEDGE_COOLDOWN_MS = 90 * 1000;
+
+function pickSledge(lines) {
+  return lines[Math.floor(Math.random() * lines.length)] || lines[0] || "";
+}
+
+function pushSledgeFeed(state, { roundId, playerId, hole, catalystKey, message }) {
+  if (!state?.eventLive || !message) return;
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  if (!state.sledgeFeed) state.sledgeFeed = [];
+
+  const now = Date.now();
+  const metaKey = `${roundId}:${catalystKey}`;
+  const last = state.sledgeMeta[metaKey] || { at: 0 };
+  if ((now - last.at) < SLEDGE_COOLDOWN_MS) return;
+
+  state.sledgeMeta[metaKey] = { at: now };
+  state.sledgeFeed.unshift({
+    id: `${now}_${metaKey}`,
+    roundId,
+    playerId: playerId || null,
+    hole: hole || null,
+    message,
+    at: new Date().toISOString(),
+  });
+  state.sledgeFeed = state.sledgeFeed.slice(0, 14);
 }
 
 function maybePushScoreSledge(state, { roundId, playerId, holeIdx, prevVal, nextVal }) {
-  if (!state?.eventLive) return;
-  if (!holeFilled(nextVal)) return;
-  if (nextVal === prevVal) return;
-
+  if (!state?.eventLive || nextVal === prevVal || !holeFilled(nextVal)) return;
   const round = ROUNDS.find(r => r.id === roundId);
   if (!round) return;
-
   const course = getCourse(round.courseId);
   const hole = course.holes[holeIdx];
   if (!hole) return;
+  const player = getP(playerId);
+  const playerShort = player?.short || "Someone";
 
   const dailyHcp = courseHcp(state.handicaps?.[playerId], course, getTeeKey(state, course.id));
   const points = sPts(nextVal, hole.par, hStrokes(dailyHcp, hole));
   const prevPoints = holeFilled(prevVal) ? sPts(prevVal, hole.par, hStrokes(dailyHcp, hole)) : null;
   if (prevPoints === points) return;
 
-  const msg = feedMessageForPoints(getP(playerId)?.short || "Someone", points, hole.n);
-  if (!msg) return;
+  if (points >= 4) {
+    pushSledgeFeed(state, {
+      roundId,
+      playerId,
+      hole: hole.n,
+      catalystKey: `big_points:${playerId}`,
+      message: pickSledge([
+        `🔥 ${playerShort} just posted ${points} pts on hole ${hole.n}. Drug test is already scheduled.`,
+        `🚨 ${playerShort} went nuclear on hole ${hole.n} with ${points} pts. Group chat integrity in danger.`,
+        `🎯 ${playerShort} milked ${points} pts from hole ${hole.n}. Handicap committee has entered the chat.`,
+      ]),
+    });
+  }
 
-  if (!state.sledgeMeta) state.sledgeMeta = {};
-  if (!state.sledgeFeed) state.sledgeFeed = [];
+  if (nextVal === -1) {
+    pushSledgeFeed(state, {
+      roundId,
+      playerId,
+      hole: hole.n,
+      catalystKey: `wipe:${playerId}`,
+      message: pickSledge([
+        `💀 ${playerShort} took a pickup on hole ${hole.n}. We will remember this for exactly 3 years.`,
+        `🫠 Hole ${hole.n} defeated ${playerShort}. Mark it down as character-building content.`,
+        `📉 ${playerShort} has activated the emergency pickup on hole ${hole.n}. Spirits remain mostly intact.`,
+      ]),
+    });
 
-  const metaKey = `${roundId}:${playerId}`;
-  const last = state.sledgeMeta[metaKey] || { lastHole: 0, at: 0 };
-  const now = Date.now();
-  if ((hole.n - last.lastHole) < 2) return;
-  if ((now - last.at) < 90 * 1000) return;
+    const partnerId = getPartner(playerId, roundId);
+    const partnerWiped = partnerId && state.scores?.[roundId]?.[partnerId]?.[holeIdx] === -1;
+    if (partnerWiped) {
+      const partnerShort = getP(partnerId)?.short || "Partner";
+      pushSledgeFeed(state, {
+        roundId,
+        hole: hole.n,
+        catalystKey: `team_double_wipe:${[playerId, partnerId].sort().join("_")}:${hole.n}`,
+        message: pickSledge([
+          `🧨 Team collapse alert: ${playerShort} + ${partnerShort} both wiped hole ${hole.n}. Pure cinema.`,
+          `🍿 Hole ${hole.n} just claimed both ${playerShort} and ${partnerShort}. This duo brought chaos, not caution.`,
+          `🚑 Double pickup on hole ${hole.n} for ${playerShort}/${partnerShort}. Send snacks and emotional support.`,
+        ]),
+      });
+    }
+  }
+}
 
-  state.sledgeMeta[metaKey] = { lastHole: hole.n, at: now };
-  state.sledgeFeed.unshift({
-    id: `${now}_${roundId}_${playerId}_${hole.n}`,
+function maybePushChulliganSledge(state, { roundId, playerId, holeIdx }) {
+  const playerShort = getP(playerId)?.short || "Someone";
+  pushSledgeFeed(state, {
     roundId,
     playerId,
-    hole: hole.n,
-    message: msg,
-    at: new Date().toISOString(),
+    hole: holeIdx + 1,
+    catalystKey: `chulligan:${playerId}`,
+    message: pickSledge([
+      `🍺 ${playerShort} just activated a Chulligan on hole ${holeIdx + 1}. Science remains divided on this strategy.`,
+      `🥃 Chulligan called for ${playerShort} on hole ${holeIdx + 1}. Form temporary, confidence permanent.`,
+      `🎪 ${playerShort} has used the Chulligan token on hole ${holeIdx + 1}. The crowd requested this timeline.`,
+    ]),
   });
-  state.sledgeFeed = state.sledgeFeed.slice(0, 14);
+}
+
+function maybePushCompClaimSledge(state, { roundId, playerId, type }) {
+  const playerShort = getP(playerId)?.short || "Someone";
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return;
+  const hole = type === "ntp" ? getNtpHole(round.id, round.courseId) : getLdHole(round.courseId);
+  const ntpLines = [
+    `📍 ${playerShort} just claimed NTP on hole ${hole}. The pin is now requesting witness protection.`,
+    `🎯 NTP belongs to ${playerShort} (for now). Everyone else suddenly remembers how to miss greens.`,
+    `🧲 ${playerShort} has grabbed NTP on hole ${hole}. That shot had main-character energy.`,
+  ];
+  const ldLines = [
+    `💣 ${playerShort} has claimed Longest Drive on hole ${hole}. Ball may still be airborne.`,
+    `🚀 ${playerShort} now holds LD on hole ${hole}. Nearby suburbs have been notified.`,
+    `📡 Longest Drive is currently ${playerShort}'s. Launch angle was disrespectful to physics.`,
+  ];
+  pushSledgeFeed(state, {
+    roundId,
+    playerId,
+    hole,
+    catalystKey: `${type}_claim:${playerId}`,
+    message: pickSledge(type === "ntp" ? ntpLines : ldLines),
+  });
 }
 
 function isRoundScoringLive(state, roundId) {
@@ -995,8 +1060,6 @@ function App() {
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
-  const [netOnline,setNetOnline]=useState(()=>navigator.onLine);
-  const [syncStatus,setSyncStatus]=useState(()=>getPendingSave()?.state ? "queued" : "synced");
 
   useEffect(()=>{
     let alive=true;
@@ -1016,23 +1079,11 @@ function App() {
   },[cur,tab,sub]);
 
   useEffect(() => {
-    const onOnline = () => {
-      setNetOnline(true);
-      flushQueuedSave();
-    };
-    const onOffline = () => {
-      setNetOnline(false);
-      setSyncStatus("queued");
-    };
-    const onSync = (e) => setSyncStatus(e?.detail?.status || "synced");
+    const onOnline = () => flushQueuedSave();
     window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    window.addEventListener(SYNC_EVENT, onSync);
     flushQueuedSave();
     return () => {
       window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-      window.removeEventListener(SYNC_EVENT, onSync);
     };
   }, []);
 
@@ -1052,7 +1103,7 @@ function App() {
 
   return (
     <div style={S.app}>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} netOnline={netOnline} syncStatus={syncStatus} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
@@ -1190,9 +1241,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
   );
 }
 
-function Header({isAdmin,name,playerId,live,netOnline,syncStatus,onBack}){
-  const syncLabel = !netOnline ? "Offline" : syncStatus === "syncing" ? "Syncing" : syncStatus === "queued" ? "Pending sync" : "Live";
-  const syncColor = !netOnline ? "#b45309" : syncStatus === "queued" ? "#b45309" : syncStatus === "syncing" ? "#1d4ed8" : "#15803d";
+function Header({isAdmin,name,playerId,live,onBack}){
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
@@ -1203,7 +1252,6 @@ function Header({isAdmin,name,playerId,live,netOnline,syncStatus,onBack}){
         <div style={{textAlign:"center"}}>
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
-          <p style={{fontSize:9,color:syncColor,margin:0,fontWeight:700}}>{syncLabel}</p>
         </div>
         <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
       </div>
@@ -1657,7 +1705,10 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
       if (!s.chulligans[roundId][pid]) s.chulligans[roundId][pid] = {};
       const current = s.chulligans[roundId][pid][nine];
       if (current === holeIdx) s.chulligans[roundId][pid][nine] = null;
-      else if (current == null) s.chulligans[roundId][pid][nine] = holeIdx;
+      else if (current == null) {
+        s.chulligans[roundId][pid][nine] = holeIdx;
+        maybePushChulliganSledge(s, { roundId, playerId: pid, holeIdx });
+      }
     });
   };
 
@@ -1840,7 +1891,19 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                     );})()}
                   </div>
                   {(isNtp||isLd)&&canEdit&&(
-                    <button onClick={()=>{upd(s=>{if(isNtp){if(!s.ntpWinners)s.ntpWinners={};s.ntpWinners[ntpKey]=s.ntpWinners[ntpKey]===playerId?null:playerId;}else{if(!s.ldWinners)s.ldWinners={};s.ldWinners[ldKey]=s.ldWinners[ldKey]===playerId?null:playerId;}});}}
+                    <button onClick={()=>{upd(s=>{
+                      if(isNtp){
+                        if(!s.ntpWinners)s.ntpWinners={};
+                        const next = s.ntpWinners[ntpKey]===playerId?null:playerId;
+                        s.ntpWinners[ntpKey]=next;
+                        if(next===playerId) maybePushCompClaimSledge(s, { roundId, playerId, type:"ntp" });
+                      }else{
+                        if(!s.ldWinners)s.ldWinners={};
+                        const next = s.ldWinners[ldKey]===playerId?null:playerId;
+                        s.ldWinners[ldKey]=next;
+                        if(next===playerId) maybePushCompClaimSledge(s, { roundId, playerId, type:"ld" });
+                      }
+                    });}}
                       style={{padding:"4px 8px",borderRadius:6,border:`1px solid ${isNtp?(isNtpW?"#16a34a":"#d1d5db"):(isLdW?"#d97706":"#d1d5db")}`,background:isNtp?(isNtpW?"#f0fdf4":"#fff"):(isLdW?"#fffbeb":"#fff"),fontSize:9,fontWeight:600,color:isNtp?(isNtpW?"#16a34a":"#94a3b8"):(isLdW?"#d97706":"#94a3b8"),cursor:"pointer",whiteSpace:"nowrap",marginLeft:"auto"}}>
                       {isNtp?(isNtpW?"✓ NTP":"Claim NTP ⛳"):(isLdW?"✓ LD":"Claim LD 💣")}
                     </button>
