@@ -734,7 +734,7 @@ const DEFAULT_STATE = {
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
 
-const SLEDGE_COOLDOWN_MS = 90 * 1000;
+const SLEDGE_COOLDOWN_MS = 10 * 60 * 1000;
 
 function pickSledge(lines) {
   return lines[Math.floor(Math.random() * lines.length)] || lines[0] || "";
