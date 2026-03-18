@@ -760,8 +760,10 @@ const DEFAULT_STATE = {
   chulligans:{},
   submitted:{},
   dailySummaries:{},
+  dailySummaryDrafts:{},
   sledgeFeed:[],
   sledgeMeta:{},
+  sledgeReads:{},
   summaryReads:{},
   eventLive:false,
   roundScoringLive:{r1:true,r2:false,r3:false},
@@ -769,32 +771,143 @@ const DEFAULT_STATE = {
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
 
-const SLEDGE_COOLDOWN_MS = 10 * 60 * 1000;
+const SLEDGE_COOLDOWN_MS = 20 * 60 * 1000;
 
 function pickSledge(lines) {
   return lines[Math.floor(Math.random() * lines.length)] || lines[0] || "";
 }
 
-function pushSledgeFeed(state, { roundId, playerId, hole, catalystKey, message }) {
-  if (!state?.eventLive || !message) return;
+const SLEDGE_LIBRARY = {
+  big_points: [
+    ({ playerShort, points, hole }) => `🔥 ${playerShort} just peeled off ${points} points on hole ${hole}. Handicap detectives are circling.`,
+    ({ playerShort, points, hole }) => `🚨 ${playerShort} walked away from hole ${hole} with ${points} points and absolutely no shame.`,
+    ({ playerShort, points, hole }) => `🎯 ${playerShort} turned hole ${hole} into a ${points}-point robbery. Case remains open.`,
+    ({ playerShort, points, hole }) => `📈 ${playerShort} just cashed ${points} points on hole ${hole}. Momentum has entered the group chat.`,
+    ({ playerShort, points, hole }) => `💰 ${playerShort} found ${points} points on hole ${hole}. Inspector of handicaps has been notified.`,
+    ({ playerShort, points, hole }) => `⚡ ${playerShort} nicked ${points} points from hole ${hole}. That felt personal.`,
+    ({ playerShort, points, hole }) => `🎲 ${playerShort} rolled up to hole ${hole} and came back with ${points} points. Filthy work.`,
+    ({ playerShort, points, hole }) => `🪄 ${playerShort} made ${points} points appear on hole ${hole}. Slight of hand suspected.`,
+    ({ playerShort, points, hole }) => `📣 ${playerShort} just posted ${points} points on hole ${hole}. The chatter is already unbearable.`,
+    ({ playerShort, points, hole }) => `😮‍💨 Hole ${hole} has just funded a ${points}-point surge for ${playerShort}. Standards are slipping.`,
+  ],
+  wipe: [
+    ({ playerShort, hole }) => `💀 ${playerShort} took a pickup on hole ${hole}. We will absolutely be revisiting this later.`,
+    ({ playerShort, hole }) => `🫠 Hole ${hole} folded ${playerShort} into a neat little pickup. Character building only.`,
+    ({ playerShort, hole }) => `📉 ${playerShort} has activated the emergency pickup on hole ${hole}. Dignity remains week-to-week.`,
+    ({ playerShort, hole }) => `🪦 ${playerShort} left their hopes on hole ${hole} and marked down the pickup.`,
+    ({ playerShort, hole }) => `😬 Pickup for ${playerShort} on hole ${hole}. A brave attempt was made by someone.`,
+    ({ playerShort, hole }) => `🚧 Hole ${hole} was closed due to a ${playerShort} incident. Pickup recorded.`,
+    ({ playerShort, hole }) => `🥀 ${playerShort} has wiped hole ${hole}. The post-mortem will be ruthless.`,
+    ({ playerShort, hole }) => `📦 ${playerShort} wrapped up hole ${hole} early with a pickup and a thousand-yard stare.`,
+    ({ playerShort, hole }) => `🛟 ${playerShort} needed the pickup button on hole ${hole}. Survival first, questions later.`,
+    ({ playerShort, hole }) => `🙃 ${playerShort} and hole ${hole} have mutually agreed to never speak again. Pickup.`,
+  ],
+  team_double_wipe: [
+    ({ playerShort, partnerShort, hole }) => `🧨 Team collapse alert: ${playerShort} + ${partnerShort} both wiped hole ${hole}. Pure cinema.`,
+    ({ playerShort, partnerShort, hole }) => `🍿 Hole ${hole} just claimed both ${playerShort} and ${partnerShort}. This duo brought chaos, not caution.`,
+    ({ playerShort, partnerShort, hole }) => `🧻 ${playerShort} and ${partnerShort} both wiped hole ${hole} — someone get this team a fresh roll of toilet paper and a reset.`,
+    ({ playerShort, partnerShort, hole }) => `🚑 Double pickup on hole ${hole} for ${playerShort} and ${partnerShort}. Send snacks and emotional support.`,
+    ({ playerShort, partnerShort, hole }) => `🌪️ ${playerShort} and ${partnerShort} both disappeared into the spin cycle on hole ${hole}.`,
+    ({ playerShort, partnerShort, hole }) => `📛 Hole ${hole} has issued matching pickup receipts to ${playerShort} and ${partnerShort}.`,
+    ({ playerShort, partnerShort, hole }) => `🧯 ${playerShort}/${partnerShort} both wiped hole ${hole}. The fairway is still smoking.`,
+    ({ playerShort, partnerShort, hole }) => `🎭 ${playerShort} and ${partnerShort} have produced a synchronised pickup on hole ${hole}. Bold theatre.`,
+    ({ playerShort, partnerShort, hole }) => `🌀 Team ${playerShort}/${partnerShort} both lost hole ${hole} in exactly the same dramatic fashion.`,
+    ({ playerShort, partnerShort, hole }) => `📉 ${playerShort} plus ${partnerShort} have managed the full double wipe on hole ${hole}. Efficient, if nothing else.`,
+  ],
+  chulligan: [
+    ({ playerShort, hole }) => `🍺 ${playerShort} just activated a Chulligan on hole ${hole}. Science remains divided on this strategy.`,
+    ({ playerShort, hole }) => `🥃 Chulligan called for ${playerShort} on hole ${hole}. Form temporary, confidence permanent.`,
+    ({ playerShort, hole }) => `🎪 ${playerShort} has used the Chulligan token on hole ${hole}. The crowd requested this timeline.`,
+    ({ playerShort, hole }) => `🧃 ${playerShort} has reached for a Chulligan on hole ${hole}. Hydration has left the chat.`,
+    ({ playerShort, hole }) => `🎟️ One Chulligan has been redeemed by ${playerShort} on hole ${hole}. Terms and conditions remain fuzzy.`,
+    ({ playerShort, hole }) => `🛞 ${playerShort} has gone to the Chulligan well on hole ${hole}. Wheels may come off, vibes stay high.`,
+    ({ playerShort, hole }) => `📣 ${playerShort} is taking the Chulligan route on hole ${hole}. This feels both avoidable and iconic.`,
+    ({ playerShort, hole }) => `🧪 Experimental golf continues: ${playerShort} has called a Chulligan on hole ${hole}.`,
+    ({ playerShort, hole }) => `🎯 ${playerShort} has paired hole ${hole} with a Chulligan. Accuracy sold separately.`,
+    ({ playerShort, hole }) => `🥳 ${playerShort} deployed the Chulligan on hole ${hole}. Coaches everywhere are sighing.`,
+  ],
+  ntp_claim: [
+    ({ playerShort, hole }) => `📍 ${playerShort} just claimed NTP on hole ${hole}. The pin is now requesting witness protection.`,
+    ({ playerShort, hole }) => `🎯 NTP belongs to ${playerShort} on hole ${hole}. Everyone else suddenly remembers how to miss greens.`,
+    ({ playerShort, hole }) => `🧲 ${playerShort} has grabbed NTP on hole ${hole}. That shot had main-character energy.`,
+    ({ playerShort, hole }) => `📏 ${playerShort} now owns the closest look on hole ${hole}. Tape measure under review.`,
+    ({ playerShort, hole }) => `👀 ${playerShort} has parked one near the flag on hole ${hole}. The witnesses are rattled.`,
+    ({ playerShort, hole }) => `🪄 ${playerShort} just turned hole ${hole} into an NTP audition and nailed it.`,
+    ({ playerShort, hole }) => `🚩 ${playerShort} is now sitting nearest on hole ${hole}. Cue a lot of forced compliments.`,
+    ({ playerShort, hole }) => `📣 Closest-to-pin on hole ${hole} currently belongs to ${playerShort}. The pressure is delicious.`,
+    ({ playerShort, hole }) => `🎬 ${playerShort} has taken NTP on hole ${hole} with a shot that demanded a replay.`,
+    ({ playerShort, hole }) => `😎 ${playerShort} owns the prettiest result on hole ${hole}: current NTP holder.`,
+  ],
+  ld_claim: [
+    ({ playerShort, hole }) => `💣 ${playerShort} has claimed Longest Drive on hole ${hole}. Ball may still be airborne.`,
+    ({ playerShort, hole }) => `🚀 ${playerShort} now holds LD on hole ${hole}. Nearby suburbs have been notified.`,
+    ({ playerShort, hole }) => `📡 Longest Drive on hole ${hole} is currently ${playerShort}'s. Launch angle disrespected physics.`,
+    ({ playerShort, hole }) => `🛫 ${playerShort} has sent one into orbit on hole ${hole} and grabbed LD.`,
+    ({ playerShort, hole }) => `📏 ${playerShort} is the new bomber-in-chief on hole ${hole}. Longest Drive claimed.`,
+    ({ playerShort, hole }) => `🌪️ ${playerShort} just bullied hole ${hole} off the tee and took LD.`,
+    ({ playerShort, hole }) => `🧨 ${playerShort} now owns the biggest send on hole ${hole}. Grip it, rip it, boast immediately.`,
+    ({ playerShort, hole }) => `🏁 Longest Drive on hole ${hole} has been stolen by ${playerShort}. The field looks wounded.`,
+    ({ playerShort, hole }) => `📣 ${playerShort} is the current LD holder on hole ${hole}. Driver face still humming.`,
+    ({ playerShort, hole }) => `😤 ${playerShort} has overpowered hole ${hole} and walked off with Longest Drive.`,
+  ],
+};
+
+function buildSledgeMessage(type, context) {
+  const templates = SLEDGE_LIBRARY[type] || [];
+  const line = pickSledge(templates);
+  return typeof line === "function" ? line(context || {}) : line;
+}
+
+function canPushSledgeForPlayers(state, roundId, playerIds, now = Date.now()) {
+  if (!state?.eventLive) return false;
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  const ids = [...new Set((playerIds || []).filter(Boolean))];
+  if (ids.length === 0) return true;
+  return ids.every(pid => {
+    const playerKey = `${roundId}:player:${pid}`;
+    const last = state.sledgeMeta[playerKey] || { at: 0 };
+    return (now - last.at) >= SLEDGE_COOLDOWN_MS;
+  });
+}
+
+function stampSledgePlayers(state, roundId, playerIds, now = Date.now()) {
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  [...new Set((playerIds || []).filter(Boolean))].forEach(pid => {
+    state.sledgeMeta[`${roundId}:player:${pid}`] = { at: now };
+  });
+}
+
+function removeSledgeFeedItems(state, predicate) {
+  if (!state?.sledgeFeed?.length) return;
+  state.sledgeFeed = state.sledgeFeed.filter(item => !predicate(item));
+}
+
+function pushSledgeFeed(state, { roundId, playerId, playerIds, hole, catalystKey, message }) {
+  if (!state?.eventLive || !message) return false;
   if (!state.sledgeMeta) state.sledgeMeta = {};
   if (!state.sledgeFeed) state.sledgeFeed = [];
 
   const now = Date.now();
+  const impactedPlayers = [...new Set((playerIds || [playerId]).filter(Boolean))];
   const metaKey = `${roundId}:${catalystKey}`;
   const last = state.sledgeMeta[metaKey] || { at: 0 };
-  if ((now - last.at) < SLEDGE_COOLDOWN_MS) return;
+  if ((now - last.at) < SLEDGE_COOLDOWN_MS) return false;
+  if (!canPushSledgeForPlayers(state, roundId, impactedPlayers, now)) return false;
 
   state.sledgeMeta[metaKey] = { at: now };
+  stampSledgePlayers(state, roundId, impactedPlayers, now);
   state.sledgeFeed.unshift({
     id: `${now}_${metaKey}`,
     roundId,
     playerId: playerId || null,
+    playerIds: impactedPlayers,
     hole: hole || null,
+    catalystKey,
     message,
-    at: new Date().toISOString(),
+    at: new Date(now).toISOString(),
   });
   state.sledgeFeed = state.sledgeFeed.slice(0, 14);
+  return true;
 }
 
 function maybePushScoreSledge(state, { roundId, playerId, holeIdx, prevVal, nextVal }) {
@@ -818,42 +931,39 @@ function maybePushScoreSledge(state, { roundId, playerId, holeIdx, prevVal, next
       playerId,
       hole: hole.n,
       catalystKey: `big_points:${playerId}`,
-      message: pickSledge([
-        `🔥 ${playerShort} just posted ${points} pts on hole ${hole.n}. Drug test is already scheduled.`,
-        `🚨 ${playerShort} went nuclear on hole ${hole.n} with ${points} pts. Group chat integrity in danger.`,
-        `🎯 ${playerShort} milked ${points} pts from hole ${hole.n}. Handicap committee has entered the chat.`,
-      ]),
+      message: buildSledgeMessage("big_points", { playerShort, points, hole: hole.n }),
     });
   }
 
   if (nextVal === -1) {
+    const partnerId = getPartner(playerId, roundId);
+    const partnerWiped = partnerId && state.scores?.[roundId]?.[partnerId]?.[holeIdx] === -1;
+    if (partnerWiped) {
+      const partnerShort = getP(partnerId)?.short || "Partner";
+      const teamKey = [playerId, partnerId].sort().join("_");
+      removeSledgeFeedItems(state, item => (
+        item.roundId === roundId
+        && item.hole === hole.n
+        && [playerId, partnerId].includes(item.playerId)
+        && item.catalystKey === `wipe:${item.playerId}`
+      ));
+      pushSledgeFeed(state, {
+        roundId,
+        playerIds: [playerId, partnerId],
+        hole: hole.n,
+        catalystKey: `team_double_wipe:${teamKey}:${hole.n}`,
+        message: buildSledgeMessage("team_double_wipe", { playerShort, partnerShort, hole: hole.n }),
+      });
+      return;
+    }
+
     pushSledgeFeed(state, {
       roundId,
       playerId,
       hole: hole.n,
       catalystKey: `wipe:${playerId}`,
-      message: pickSledge([
-        `💀 ${playerShort} took a pickup on hole ${hole.n}. We will remember this for exactly 3 years.`,
-        `🫠 Hole ${hole.n} defeated ${playerShort}. Mark it down as character-building content.`,
-        `📉 ${playerShort} has activated the emergency pickup on hole ${hole.n}. Spirits remain mostly intact.`,
-      ]),
+      message: buildSledgeMessage("wipe", { playerShort, hole: hole.n }),
     });
-
-    const partnerId = getPartner(playerId, roundId);
-    const partnerWiped = partnerId && state.scores?.[roundId]?.[partnerId]?.[holeIdx] === -1;
-    if (partnerWiped) {
-      const partnerShort = getP(partnerId)?.short || "Partner";
-      pushSledgeFeed(state, {
-        roundId,
-        hole: hole.n,
-        catalystKey: `team_double_wipe:${[playerId, partnerId].sort().join("_")}:${hole.n}`,
-        message: pickSledge([
-          `🧨 Team collapse alert: ${playerShort} + ${partnerShort} both wiped hole ${hole.n}. Pure cinema.`,
-          `🍿 Hole ${hole.n} just claimed both ${playerShort} and ${partnerShort}. This duo brought chaos, not caution.`,
-          `🚑 Double pickup on hole ${hole.n} for ${playerShort}/${partnerShort}. Send snacks and emotional support.`,
-        ]),
-      });
-    }
   }
 }
 
@@ -864,11 +974,7 @@ function maybePushChulliganSledge(state, { roundId, playerId, holeIdx }) {
     playerId,
     hole: holeIdx + 1,
     catalystKey: `chulligan:${playerId}`,
-    message: pickSledge([
-      `🍺 ${playerShort} just activated a Chulligan on hole ${holeIdx + 1}. Science remains divided on this strategy.`,
-      `🥃 Chulligan called for ${playerShort} on hole ${holeIdx + 1}. Form temporary, confidence permanent.`,
-      `🎪 ${playerShort} has used the Chulligan token on hole ${holeIdx + 1}. The crowd requested this timeline.`,
-    ]),
+    message: buildSledgeMessage("chulligan", { playerShort, hole: holeIdx + 1 }),
   });
 }
 
@@ -877,22 +983,12 @@ function maybePushCompClaimSledge(state, { roundId, playerId, type }) {
   const round = ROUNDS.find(r => r.id === roundId);
   if (!round) return;
   const hole = type === "ntp" ? getNtpHole(round.id, round.courseId) : getLdHole(round.courseId);
-  const ntpLines = [
-    `📍 ${playerShort} just claimed NTP on hole ${hole}. The pin is now requesting witness protection.`,
-    `🎯 NTP belongs to ${playerShort} (for now). Everyone else suddenly remembers how to miss greens.`,
-    `🧲 ${playerShort} has grabbed NTP on hole ${hole}. That shot had main-character energy.`,
-  ];
-  const ldLines = [
-    `💣 ${playerShort} has claimed Longest Drive on hole ${hole}. Ball may still be airborne.`,
-    `🚀 ${playerShort} now holds LD on hole ${hole}. Nearby suburbs have been notified.`,
-    `📡 Longest Drive is currently ${playerShort}'s. Launch angle was disrespectful to physics.`,
-  ];
   pushSledgeFeed(state, {
     roundId,
     playerId,
     hole,
     catalystKey: `${type}_claim:${playerId}`,
-    message: pickSledge(type === "ntp" ? ntpLines : ldLines),
+    message: buildSledgeMessage(type === "ntp" ? "ntp_claim" : "ld_claim", { playerShort, hole }),
   });
 }
 
@@ -1010,79 +1106,95 @@ function getRoundTrendStats(state, round) {
   return { mostBirdies, mostWipes, worstBogeyRun, worstStretch };
 }
 
-function callBanterModel(prompt) {
-  const apiKey = window.localStorage.getItem("spinners-llm-api-key");
-  if (!apiKey) return null;
-  return fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      temperature: 0.9,
-      messages: [
-        { role: "system", content: "You write funny, cheeky but friendly golf weekend banter." },
-        { role: "user", content: prompt },
-      ],
-    }),
-  })
-    .then(r => (r.ok ? r.json() : null))
-    .then(d => d?.choices?.[0]?.message?.content || null)
-    .catch(() => null);
-}
-
-async function generateRoundSummary(state, roundId) {
+function formatRoundSummaryExport(state, roundId) {
   const round = ROUNDS.find(r => r.id === roundId);
-  if (!round) return null;
+  if (!round) return "";
   const leaderboard = getRoundLeaderboard(state, round);
   const overall = getOverallLeaderboard(state);
   const ntpId = state.ntpWinners?.[`${round.id}_ntp`];
   const ldId = state.ldWinners?.[`${round.id}_ld`];
   const trendStats = getRoundTrendStats(state, round);
-  const top3 = leaderboard.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.score} pts)`).join("\n");
-  const overallTop = overall.slice(0,3).map((p,i)=>`${i+1}. ${p.name} (${p.total} total)`).join("\n");
-  const prompt = `Write a short daily summary for round ${round.num} (${round.courseName}).\nRound leaders:\n${top3}\n\nOverall leaders:\n${overallTop}\n\nNTP winner: ${ntpId ? getP(ntpId)?.name : "TBC"}\nLD winner: ${ldId ? getP(ldId)?.name : "TBC"}\n\nRound trend notes:\n- Most birdies: ${trendStats.mostBirdies?.player?.name || "TBC"} (${trendStats.mostBirdies?.birdies ?? 0})\n- Most wipes (P): ${trendStats.mostWipes?.player?.name || "TBC"} (${trendStats.mostWipes?.wipes ?? 0})\n- Worst bogey run: ${trendStats.worstBogeyRun?.player?.name || "TBC"} (${trendStats.worstBogeyRun?.worstBogeyRun ?? 0} holes)\n- Worst 3-hole stretch: ${trendStats.worstStretch?.player?.name || "TBC"} (+${trendStats.worstStretch?.worstStretch?.total ?? 0} net over holes ${trendStats.worstStretch?.worstStretch?.startHole ?? "?"}-${trendStats.worstStretch?.worstStretch?.endHole ?? "?"})\n\nMake it cheeky and funny, call out weird momentum swings, and include obscure round trends people might miss. Return exactly three bullet points: one funny headline, one stat nugget, one friendly sledge line.`;
-  const aiText = await callBanterModel(prompt);
+  const course = getCourse(round.courseId);
 
-  if (aiText) {
-    return {
-      roundId,
-      roundNum: round.num,
-      title: `Round ${round.num} Banter Bulletin`,
-      content: aiText,
-      source: "llm",
-      releasedAt: new Date().toISOString(),
-    };
-  }
+  const sections = [
+    `Round ${round.num} - ${round.courseName}`,
+    `${round.day}`,
+    "",
+    "ROUND LEADERBOARD",
+    ...(leaderboard.length ? leaderboard.map((p, i) => `${i + 1}. ${p.name} - ${p.score} pts`) : ["No scores recorded yet."]),
+    "",
+    "OVERALL LEADERBOARD",
+    ...(overall.length ? overall.map((p, i) => `${i + 1}. ${p.name} - ${p.total} pts`) : ["No overall totals yet."]),
+    "",
+    `NTP: ${ntpId ? getP(ntpId)?.name : "TBC"}`,
+    `LD: ${ldId ? getP(ldId)?.name : "TBC"}`,
+    "",
+    "ROUND TREND NOTES",
+    `Most birdies: ${trendStats.mostBirdies?.player?.name || "TBC"} (${trendStats.mostBirdies?.birdies ?? 0})`,
+    `Most wipes (P): ${trendStats.mostWipes?.player?.name || "TBC"} (${trendStats.mostWipes?.wipes ?? 0})`,
+    `Worst bogey run: ${trendStats.worstBogeyRun?.player?.name || "TBC"} (${trendStats.worstBogeyRun?.worstBogeyRun ?? 0} holes)`,
+    `Worst 3-hole stretch: ${trendStats.worstStretch?.player?.name || "TBC"} (+${trendStats.worstStretch?.worstStretch?.total ?? 0} net over holes ${trendStats.worstStretch?.worstStretch?.startHole ?? "?"}-${trendStats.worstStretch?.worstStretch?.endHole ?? "?"})`,
+    "",
+    "FULL SCORESHEETS",
+  ];
 
-  const [first, second] = leaderboard;
-  const leaderGap = first && second ? first.score - second.score : 0;
-  const birdieLine = trendStats.mostBirdies?.birdies
-    ? `${trendStats.mostBirdies.player.short} quietly stacked **${trendStats.mostBirdies.birdies} birdies** while everyone else was arguing over gimmes.`
-    : "Birdies were rare — mostly survival golf and brave faces.";
-  const wipeLine = trendStats.mostWipes?.wipes
-    ? `${trendStats.mostWipes.player.short} led the wipe parade with **${trendStats.mostWipes.wipes} P's**, proving consistency comes in many forms.`
-    : "No wipes recorded. Suspiciously tidy behaviour for this group.";
-  const stretchLine = trendStats.worstStretch?.worstStretch
-    ? `${trendStats.worstStretch.player.short} suffered the darkest patch: holes ${trendStats.worstStretch.worstStretch.startHole}-${trendStats.worstStretch.worstStretch.endHole} at **+${trendStats.worstStretch.worstStretch.total} net**.`
-    : "No catastrophic 3-hole implosion detected (yet).";
-  const bogeyRunLine = trendStats.worstBogeyRun?.worstBogeyRun
-    ? `${trendStats.worstBogeyRun.player.short} went on a **${trendStats.worstBogeyRun.worstBogeyRun}-hole bogey-or-worse run** and lived to tell the tale.`
-    : "Bogey runs stayed short, tempers mostly intact.";
+  round.matches.forEach((match, matchIndex) => {
+    sections.push(`Match ${matchIndex + 1}: ${match.blue.map(id => getP(id)?.short || id).join(" / ")} vs ${match.grey.map(id => getP(id)?.short || id).join(" / ")}`);
+    [...match.blue, ...match.grey].forEach(playerId => {
+      const player = getP(playerId);
+      const scores = state.scores?.[round.id]?.[playerId] || [];
+      const dailyHcp = courseHcp(state.handicaps?.[playerId], course, getTeeKey(state, course.id));
+      const holeParts = course.holes.map((hole, idx) => {
+        const gross = scores[idx] ?? 0;
+        if (!holeFilled(gross)) return `${hole.n}: -`;
+        if (gross === -1) return `${hole.n}: P`;
+        const points = sPts(gross, hole.par, hStrokes(dailyHcp, hole));
+        return `${hole.n}: ${gross} (${points}pt)`;
+      });
+      const totalPoints = course.holes.reduce((sum, hole, idx) => sum + sPts(scores[idx] ?? 0, hole.par, hStrokes(dailyHcp, hole)), 0);
+      sections.push(`${player?.name || playerId} | Total ${totalPoints} pts | ${holeParts.join(", ")}`);
+    });
+    sections.push("");
+  });
+
+  return sections.join("\n");
+}
+
+function buildManualRoundSummary(state, roundId, content) {
+  const round = ROUNDS.find(r => r.id === roundId);
+  if (!round) return null;
   return {
     roundId,
     roundNum: round.num,
     title: `Round ${round.num} Banter Bulletin`,
-    content: [
-      `• **Clubhouse Headline:** ${first?.short || "Someone"} strutted into ${round.courseName} like they owned the joint, posting **${first?.score ?? "??"} pts** and charging into first.` ,
-      `• **Stat Nerd Corner:** ${birdieLine} ${wipeLine} ${stretchLine} Gap from 1st to 2nd: **${leaderGap} pts**.`,
-      `• **Weekend Sledge:** ${bogeyRunLine} NTP went to **${ntpId ? getP(ntpId)?.short : "the mystery sniper"}** and LD to **${ldId ? getP(ldId)?.short : "the unknown bomber"}** — receipts are being checked by the loudest man in the group chat.`,
-    ].join("\n"),
-    source: "fallback",
+    content: (content || "").trim(),
+    source: "admin",
     releasedAt: new Date().toISOString(),
   };
+}
+
+async function copyText(text) {
+  if (!text) return false;
+  try {
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+  try {
+    const area = document.createElement("textarea");
+    area.value = text;
+    area.setAttribute("readonly", "");
+    area.style.position = "absolute";
+    area.style.left = "-9999px";
+    document.body.appendChild(area);
+    area.select();
+    const ok = document.execCommand("copy");
+    document.body.removeChild(area);
+    return !!ok;
+  } catch {
+    return false;
+  }
 }
 
 function App() {
@@ -1140,7 +1252,7 @@ function App() {
     <div style={S.app}>
       <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
-        {tab==="cup"&&!sub&&<CupScreen state={state} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
+        {tab==="cup"&&!sub&&<CupScreen state={state} cur={cur} upd={upd} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
         {tab==="scores"&&!sub&&(live?<ScoresList state={state} cur={cur} isAdmin={isAdmin} onSelect={(r,p)=>setSub({t:"sc",r,p})}/>:<LockedPage title="Scoring" msg="Scoring will open when the event goes live." icon="⛳"/>)}
         {tab==="scores"&&sub?.t==="sc"&&<ScoreEntry state={state} upd={upd} roundId={sub.r} playerId={sub.p||cur} isAdmin={isAdmin} cur={cur} onBack={()=>setSub(null)}/>}
@@ -1334,7 +1446,7 @@ function LockedMessage({title,msg,onBack}){
 }
 
 // ─── Cup Screen ──────────────────────────────────────────────
-function CupScreen({state,onMatch,live,isAdmin}){
+function CupScreen({state,cur,upd,onMatch,live,isAdmin}){
   let bT=0,gT=0,bLive=0,gLive=0;
   ROUNDS.forEach(r=>{
     if(!isRoundRevealed(state,r.id,live,isAdmin)) return;
@@ -1358,7 +1470,24 @@ function CupScreen({state,onMatch,live,isAdmin}){
   const blockFill=(points,idx)=>clamp(points-idx,0,1);
   const segStep=0.5;
   const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
-  const sledgeFeed = (state.sledgeFeed || []).slice(0, 5);
+  const activeViewer = cur && cur !== "admin" && cur !== "spectator" ? cur : null;
+  const sledgeFeed = (state.sledgeFeed || []).filter(item => !activeViewer || !state.sledgeReads?.[activeViewer]?.[item.id]).slice(0, 5);
+
+  useEffect(() => {
+    if (!activeViewer || !sledgeFeed.length) return;
+    upd(s => {
+      if (!s.sledgeReads) s.sledgeReads = {};
+      if (!s.sledgeReads[activeViewer]) s.sledgeReads[activeViewer] = {};
+      let changed = false;
+      sledgeFeed.forEach(item => {
+        if (!s.sledgeReads[activeViewer][item.id]) {
+          s.sledgeReads[activeViewer][item.id] = true;
+          changed = true;
+        }
+      });
+      if (!changed) return;
+    });
+  }, [activeViewer, sledgeFeed, upd]);
 
   const statusSeg=(side,segVal)=>{
     const official=side==="blue"?bT:gT;
@@ -2513,12 +2642,12 @@ function SummaryHubPage({state,cur,onBack}) {
     <div>
       <button onClick={onBack} style={S.backBtn}>← Info</button>
       <h2 style={S.sectTitle}>Weekend Banter Summary</h2>
-      {summaries.length===0 && <div style={{...S.card,fontSize:13,color:"#64748b"}}>No daily summary released yet. Admin can release once all scores are submitted for a round.</div>}
+      {summaries.length===0 && <div style={{...S.card,fontSize:13,color:"#64748b"}}>No daily summary released yet. Admin can draft and launch one when a round is ready.</div>}
       {summaries.map(s => (
         <div key={s.roundId} style={{...S.card,borderLeft:"3px solid #2563eb",background:"#f8fbff"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:6}}>
             <div style={{fontSize:15,fontWeight:700,color:"#0f172a"}}>{s.title}</div>
-            <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700}}>{s.source === "llm" ? "LLM" : "Fallback"}</div>
+            <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700}}>{s.source === "admin" ? "Admin" : "Manual"}</div>
           </div>
           <div style={{fontSize:13,color:"#475569",lineHeight:1.65,whiteSpace:"pre-wrap"}}>{s.content}</div>
           {cur && cur !== "admin" && cur !== "spectator" && (
@@ -2557,7 +2686,7 @@ function PastChampionsPage({onBack}) {
 
 // ─── Players ─────────────────────────────────────────────────
 function PlayersPage({state,upd,isAdmin,live}){
-  const [isGeneratingSummary,setIsGeneratingSummary]=useState(false);
+  const [summaryStatus,setSummaryStatus]=useState({});
   const [confirmReset,setConfirmReset]=useState(false);
   const [selectedBio, setSelectedBio] = useState(null);
   const teams = [
@@ -2639,41 +2768,67 @@ function PlayersPage({state,upd,isAdmin,live}){
 
       {isAdmin && (
         <div style={{padding:"14px 16px",background:"#eef6ff",borderRadius:12,border:"1px solid #bfdbfe",marginBottom:16}}>
-          <div style={{fontSize:14,fontWeight:700,color:"#1e3a8a",marginBottom:8}}>🧠 Daily Summary Release</div>
-          <div style={{fontSize:11,color:"#1e40af",marginBottom:10}}>Release a round summary after all 12 scores are submitted. It uses round results + leaderboard + LD/NTP to generate banter.</div>
+          <div style={{fontSize:14,fontWeight:700,color:"#1e3a8a",marginBottom:8}}>📝 Round Banter Summary Launch</div>
+          <div style={{fontSize:11,color:"#1e40af",marginBottom:10}}>Draft the round banter summary yourself, copy the full round scoresheet to use in an external LLM if you want, then launch the finished summary to players.</div>
           {ROUNDS.map(round => {
             const done = isRoundFullySubmitted(state, round.id);
             const released = !!state.dailySummaries?.[round.id];
+            const draft = state.dailySummaryDrafts?.[round.id] || "";
+            const status = summaryStatus[round.id] || "";
+            const exportText = formatRoundSummaryExport(state, round.id);
             return (
-              <div key={`summary_${round.id}`} style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:8,marginBottom:8,paddingBottom:8,borderBottom:"1px dashed #bfdbfe"}}>
-                <div>
-                  <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>Round {round.num} · {round.courseName}</div>
-                  <div style={{fontSize:10,color:done?"#15803d":"#b45309"}}>{done ? "All scores submitted" : "Waiting for score submissions"}</div>
+              <div key={`summary_${round.id}`} style={{marginBottom:12,paddingBottom:12,borderBottom:"1px dashed #bfdbfe"}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:10,marginBottom:8}}>
+                  <div>
+                    <div style={{fontSize:12,fontWeight:700,color:"#1e293b"}}>Round {round.num} · {round.courseName}</div>
+                    <div style={{fontSize:10,color:done?"#15803d":"#b45309"}}>{done ? "All scores submitted" : "Scores still live — you can still draft and copy the scoresheet now."}</div>
+                  </div>
+                  <div style={{display:"flex",gap:8,flexWrap:"wrap",justifyContent:"flex-end"}}>
+                    <button
+                      onClick={async ()=>{
+                        const ok = await copyText(exportText);
+                        setSummaryStatus(prev => ({ ...prev, [round.id]: ok ? "Scoresheet copied." : "Copy failed on this device." }));
+                      }}
+                      style={{padding:"7px 12px",borderRadius:8,border:"1px solid #93c5fd",background:"#fff",color:"#1d4ed8",fontSize:12,fontWeight:700,cursor:"pointer"}}>
+                      Copy Scoresheet
+                    </button>
+                    <button
+                      disabled={!draft.trim()}
+                      onClick={()=>{
+                        const summary = buildManualRoundSummary(state, round.id, draft);
+                        if (!summary?.content) {
+                          setSummaryStatus(prev => ({ ...prev, [round.id]: "Add a summary before launching." }));
+                          return;
+                        }
+                        upd(s => {
+                          if (!s.dailySummaries) s.dailySummaries = {};
+                          if (!s.summaryReads) s.summaryReads = {};
+                          s.dailySummaries[round.id] = summary;
+                          PLAYERS.forEach(p => {
+                            if (!s.summaryReads[p.id]) s.summaryReads[p.id] = {};
+                            s.summaryReads[p.id][round.id] = false;
+                          });
+                        });
+                        setSummaryStatus(prev => ({ ...prev, [round.id]: released ? "Summary re-launched." : "Summary launched." }));
+                      }}
+                      style={{padding:"7px 12px",borderRadius:8,border:"none",background:released?"#0f766e":"#2563eb",color:"#fff",fontSize:12,fontWeight:700,cursor:!draft.trim()?"not-allowed":"pointer",opacity:!draft.trim()?0.45:1}}>
+                      {released ? "Re-launch Summary" : "Launch Summary"}
+                    </button>
+                  </div>
                 </div>
-                <button
-                  disabled={!done || isGeneratingSummary}
-                  onClick={async ()=>{
-                    setIsGeneratingSummary(true);
-                    const summary = await generateRoundSummary(state, round.id);
-                    setIsGeneratingSummary(false);
-                    if (!summary) return;
-                    upd(s => {
-                      if (!s.dailySummaries) s.dailySummaries = {};
-                      if (!s.summaryReads) s.summaryReads = {};
-                      s.dailySummaries[round.id] = summary;
-                      PLAYERS.forEach(p => {
-                        if (!s.summaryReads[p.id]) s.summaryReads[p.id] = {};
-                        s.summaryReads[p.id][round.id] = false;
-                      });
-                    });
-                  }}
-                  style={{padding:"7px 12px",borderRadius:8,border:"none",background:released?"#0f766e":"#2563eb",color:"#fff",fontSize:12,fontWeight:700,cursor:(!done || isGeneratingSummary)?"not-allowed":"pointer",opacity:(!done || isGeneratingSummary)?0.45:1}}>
-                  {isGeneratingSummary ? "Generating..." : released ? "Re-release Summary" : "Release Summary"}
-                </button>
+                <textarea
+                  value={draft}
+                  onChange={e=>upd(s=>{if(!s.dailySummaryDrafts)s.dailySummaryDrafts={}; s.dailySummaryDrafts[round.id]=e.target.value;})}
+                  placeholder={`Draft Round ${round.num} banter summary here. Paste in what your external LLM gives you, or write it manually.`}
+                  style={{width:"100%",minHeight:132,padding:"10px 12px",borderRadius:10,border:"1px solid #93c5fd",fontSize:13,lineHeight:1.55,color:"#1e293b",boxSizing:"border-box",resize:"vertical",background:"#fff"}}
+                />
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:8,flexWrap:"wrap"}}>
+                  <div style={{fontSize:10,color:"#475569"}}>{draft.trim() ? `${draft.trim().length} chars drafted` : "No draft yet."}</div>
+                  <div style={{fontSize:10,color:status.includes("failed") ? "#b91c1c" : "#1d4ed8"}}>{status || "Use Copy Scoresheet to grab the round data for your external prompt."}</div>
+                </div>
               </div>
             );
           })}
-          <div style={{fontSize:10,color:"#334155"}}>Tip: add your key in browser localStorage as <code>spinners-llm-api-key</code> for live AI output. Otherwise, app generates a local fallback summary.</div>
         </div>
       )}
 
