@@ -1,9 +1,36 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const runtimeConfig = window.__SPINNERS_CONFIG || {};
-const SUPABASE_URL = runtimeConfig.supabaseUrl || window.localStorage.getItem("spinners-supabase-url") || "";
-const SUPABASE_KEY = runtimeConfig.supabaseKey || window.localStorage.getItem("spinners-supabase-key") || "";
-const DB_ROW_ID = runtimeConfig.dbRowId || window.localStorage.getItem("spinners-db-row-id") || "spinners-cup-2026";
+
+function getSearchParams() {
+  try {
+    return new URLSearchParams(window.location.search);
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+function resolveConfigValue({ runtimeKeys = [], localStorageKeys = [], queryKeys = [] }) {
+  const params = getSearchParams();
+  const runtimeValue = runtimeKeys.map(key => runtimeConfig?.[key]).find(Boolean);
+  if (runtimeValue) return String(runtimeValue).trim();
+
+  for (const key of localStorageKeys) {
+    const value = window.localStorage.getItem(key);
+    if (value) return value.trim();
+  }
+
+  for (const key of queryKeys) {
+    const value = params.get(key);
+    if (value) return value.trim();
+  }
+
+  return "";
+}
+
+const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localStorageKeys: ["spinners-supabase-url"], queryKeys: ["supabaseUrl"] });
+const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"] });
+const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
 const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
 
 const supabaseHeaders = {
@@ -112,8 +139,16 @@ const SK = "spinners-cup-2026-v6";
 const PLAYER_LOCK_KEY = "spinners-cup-2026-player-lock";
 const ACCESS_GRANTED_KEY = "spinners-cup-2026-access-granted";
 const ROUND_KICKOFF_SEEN_KEY = "spinners-cup-2026-round-kickoff";
-const ADMIN_CODE = runtimeConfig.adminCode || window.localStorage.getItem("spinners-admin-code") || "";
-const APP_PASSWORD = runtimeConfig.appPassword || window.localStorage.getItem("spinners-app-password") || "";
+const ADMIN_CODE = resolveConfigValue({
+  runtimeKeys: ["adminCode", "adminPassword"],
+  localStorageKeys: ["spinners-admin-code", "spinners-admin-password"],
+  queryKeys: ["adminCode", "adminPassword"],
+});
+const APP_PASSWORD = resolveConfigValue({
+  runtimeKeys: ["appPassword", "eventPassword"],
+  localStorageKeys: ["spinners-app-password", "spinners-event-password"],
+  queryKeys: ["appPassword", "eventPassword"],
+});
 const LOGO = "./public/Artboard 1.png";
 const SPONSOR_LOGO = "./AirKelsoBlack.png";
 const BANNER_PHOTO_SIZE = 34;
@@ -1097,7 +1132,7 @@ function App() {
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
   if(!hasAccess) return <AccessGate onGrant={()=>{localStorage.setItem(ACCESS_GRANTED_KEY,"1");setHasAccess(true);}} />;
-  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
+  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c.trim()===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
 
@@ -1170,12 +1205,12 @@ function AccessGate({onGrant}){
           type="password"
           value={password}
           onChange={e=>{setPassword(e.target.value);setErr(false);}}
-          onKeyDown={e=>{if(e.key==="Enter"){if(password===APP_PASSWORD)onGrant();else setErr(true);}}}
+          onKeyDown={e=>{if(e.key==="Enter"){if(password.trim()===APP_PASSWORD)onGrant();else setErr(true);}}}
           placeholder="Event password"
           style={{...S.input,marginBottom:10}}
         />
         <button
-          onClick={()=>{if(password===APP_PASSWORD)onGrant();else setErr(true);}}
+          onClick={()=>{if(password.trim()===APP_PASSWORD)onGrant();else setErr(true);}}
           style={{width:"100%",padding:"11px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:14,minHeight:44}}
         >
           Enter
@@ -1206,7 +1241,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           {!showA?(<button onClick={()=>setShowA(true)} aria-label="Open admin login" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",color:"#64748b",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>🔒 Admin</button>):(
             <div style={{display:"flex",gap:8,gridColumn:"span 2"}}>
               <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
-              <button onClick={()=>{if(ADMIN_CODE && code===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
+              <button onClick={()=>{if(ADMIN_CODE && code.trim()===ADMIN_CODE)onAdmin(code);else setErr(true);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
             </div>
           )}
           <button onClick={onSpectator} aria-label="Open spectator mode" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",background:"#fff",color:"#334155",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>👀 Spectator</button>
