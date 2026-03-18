@@ -2446,7 +2446,7 @@ function TripSchedule({onBack}){
       items: [
         { time: "6:00am", text: "Thursday golfers flight to Melbourne" },
         { time: "12:30pm", text: "Warm-up round at The Dunes Golf Course" },
-        { time: "After golf", text: "Check-in at AirBnB, St Andrews Beach" },
+        { time: "After golf", text: "Check-in at AirBnB — 406 Dundas St, St Andrews Beach" },
         { time: "Evening", text: "Dinner — Portsea Hotel" },
       ],
     },
@@ -2531,7 +2531,7 @@ function TripSchedule({onBack}){
       <div style={{padding:"12px 14px",background:"#f1f5f9",borderRadius:10,marginTop:8}}>
         <div style={{fontSize:11,fontWeight:700,color:"#64748b",marginBottom:6}}>📋 Key Info</div>
         <div style={{fontSize:12,color:"#475569",lineHeight:1.6}}>
-          <div>🏠 <strong>Thu–Fri:</strong> AirBnB at St Andrews Beach</div>
+          <div>🏠 <strong>Thu–Fri:</strong> AirBnB — 406 Dundas St, St Andrews Beach</div>
           <div>🏨 <strong>Sat night:</strong> On-site rooms at Peninsula Kingswood</div>
           <div>👔 <strong>PK Dress Code:</strong> They're stricter on dress code here. Golf attire or collared shirts/chinos etc.</div>
         </div>
