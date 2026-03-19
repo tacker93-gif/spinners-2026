@@ -53,9 +53,17 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
 async function load() {
   try {
     if (SUPABASE_URL && SUPABASE_KEY) {
+      const cacheBust = Date.now();
       const res = await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data`,
-        { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
+        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
+        {
+          cache: "no-store",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Cache-Control": "no-cache",
+          },
+        }
       );
       if (res.ok) {
         const rows = await res.json();
@@ -94,7 +102,7 @@ function getPendingSave() {
 async function writeRemoteState(nextState) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return true;
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}`,
     {
       method: "PATCH",
       headers: supabaseHeaders,
@@ -1240,6 +1248,8 @@ async function copyText(text) {
   }
 }
 
+const LIVE_SYNC_INTERVAL_MS = 4000;
+
 function App() {
   const [state,setState]=useState(()=>DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
@@ -1250,12 +1260,30 @@ function App() {
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
+  const refreshInFlightRef = useRef(false);
+
+  const refreshState = useCallback(async ({ shouldApply, force = false } = {}) => {
+    if (refreshInFlightRef.current && !force) return null;
+    refreshInFlightRef.current = true;
+    try {
+      const next = await load();
+      if (next && (!shouldApply || shouldApply())) setState(DC(next));
+      return next;
+    } finally {
+      refreshInFlightRef.current = false;
+    }
+  }, []);
 
   useEffect(()=>{
     let alive=true;
-    load().then(s=>{if(alive&&s)setState(DC(s));});
-    return ()=>{alive=false;};
-  },[]);
+    const syncState = () => refreshState({ shouldApply: () => alive });
+    syncState();
+    const interval = window.setInterval(syncState, LIVE_SYNC_INTERVAL_MS);
+    return ()=>{
+      alive=false;
+      window.clearInterval(interval);
+    };
+  },[refreshState]);
   useEffect(()=>{
     if (lockedPlayerId && PLAYERS.some(p => p.id === lockedPlayerId)) {
       setCur(lockedPlayerId);
@@ -1265,17 +1293,37 @@ function App() {
   },[lockedPlayerId]);
   useEffect(()=>{
     if(!cur) return;
-    load().then(s=>{if(s)setState(DC(s));});
-  },[cur,tab,sub]);
+    refreshState();
+  },[cur,tab,sub,refreshState]);
 
   useEffect(() => {
-    const onOnline = () => flushQueuedSave();
+    const syncState = () => refreshState();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncState();
+    };
+    window.addEventListener("focus", syncState);
+    window.addEventListener("pageshow", syncState);
+    window.addEventListener("storage", syncState);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", syncState);
+      window.removeEventListener("pageshow", syncState);
+      window.removeEventListener("storage", syncState);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [refreshState]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      flushQueuedSave();
+      refreshState();
+    };
     window.addEventListener("online", onOnline);
     flushQueuedSave();
     return () => {
       window.removeEventListener("online", onOnline);
     };
-  }, []);
+  }, [refreshState]);
 
   useEffect(() => {
     if (!cur || cur === "admin" || cur === "spectator") return;
