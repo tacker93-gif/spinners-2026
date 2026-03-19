@@ -37,7 +37,6 @@ const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
   "Authorization": `Bearer ${SUPABASE_KEY}`,
   "Content-Type": "application/json",
-  "Prefer": "return=minimal",
 };
 
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
@@ -55,7 +54,7 @@ async function load() {
     if (SUPABASE_URL && SUPABASE_KEY) {
       const cacheBust = Date.now();
       const res = await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data&_=${cacheBust}`,
+        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
         {
           cache: "no-store",
           headers: {
@@ -102,14 +101,27 @@ function getPendingSave() {
 async function writeRemoteState(nextState) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return true;
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}`,
+    `${SUPABASE_URL}/rest/v1/app_state`,
     {
-      method: "PATCH",
-      headers: supabaseHeaders,
-      body: JSON.stringify({ data: nextState, updated_at: new Date().toISOString() }),
+      method: "POST",
+      headers: {
+        ...supabaseHeaders,
+        "Prefer": "resolution=merge-duplicates,return=representation",
+      },
+      body: JSON.stringify([{
+        id: DB_ROW_ID,
+        data: nextState,
+        updated_at: new Date().toISOString(),
+      }]),
     }
   );
-  return !!res?.ok;
+  if (!res?.ok) return false;
+  try {
+    const rows = await res.json();
+    return !!rows?.some(row => row?.id === DB_ROW_ID);
+  } catch {
+    return false;
+  }
 }
 
 async function flushQueuedSave() {
