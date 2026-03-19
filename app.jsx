@@ -53,9 +53,17 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
 async function load() {
   try {
     if (SUPABASE_URL && SUPABASE_KEY) {
+      const cacheBust = Date.now();
       const res = await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data`,
-        { headers: { "apikey": SUPABASE_KEY, "Authorization": `Bearer ${SUPABASE_KEY}` } }
+        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${DB_ROW_ID}&select=data&_=${cacheBust}`,
+        {
+          cache: "no-store",
+          headers: {
+            "apikey": SUPABASE_KEY,
+            "Authorization": `Bearer ${SUPABASE_KEY}`,
+            "Cache-Control": "no-cache",
+          },
+        }
       );
       if (res.ok) {
         const rows = await res.json();
