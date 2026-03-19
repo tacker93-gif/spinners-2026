@@ -1,6 +1,10 @@
 const { useState, useEffect, useCallback, useRef } = React;
 
 const runtimeConfig = window.__SPINNERS_CONFIG || {};
+const DEFAULT_REMOTE_CONFIG = {
+  supabaseUrl: "https://wgcrujpmqftelxtutgjr.supabase.co",
+  supabaseKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnY3J1anBtcWZ0ZWx4dHV0Z2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODUxMDgsImV4cCI6MjA4ODg2MTEwOH0.65Z6in9zU0Fy4LtjuWPyTvrNO-2aHhgJZfjga9yrI5Q",
+};
 
 function getSearchParams() {
   try {
@@ -10,26 +14,50 @@ function getSearchParams() {
   }
 }
 
-function resolveConfigValue({ runtimeKeys = [], localStorageKeys = [], queryKeys = [] }) {
+function persistConfigValue(localStorageKeys, value) {
+  if (!value) return;
+  for (const key of localStorageKeys) {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch {}
+  }
+}
+
+function resolveConfigValue({ runtimeKeys = [], localStorageKeys = [], queryKeys = [], defaultValue = "" }) {
   const params = getSearchParams();
-  const runtimeValue = runtimeKeys.map(key => runtimeConfig?.[key]).find(Boolean);
-  if (runtimeValue) return String(runtimeValue).trim();
+
+  for (const key of queryKeys) {
+    const value = params.get(key);
+    if (value) {
+      const normalized = value.trim();
+      persistConfigValue(localStorageKeys, normalized);
+      return normalized;
+    }
+  }
 
   for (const key of localStorageKeys) {
     const value = window.localStorage.getItem(key);
     if (value) return value.trim();
   }
 
-  for (const key of queryKeys) {
-    const value = params.get(key);
-    if (value) return value.trim();
+  const runtimeValue = runtimeKeys.map(key => runtimeConfig?.[key]).find(Boolean);
+  if (runtimeValue) {
+    const normalized = String(runtimeValue).trim();
+    persistConfigValue(localStorageKeys, normalized);
+    return normalized;
+  }
+
+  if (defaultValue) {
+    const normalized = String(defaultValue).trim();
+    persistConfigValue(localStorageKeys, normalized);
+    return normalized;
   }
 
   return "";
 }
 
-const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localStorageKeys: ["spinners-supabase-url"], queryKeys: ["supabaseUrl"] });
-const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"] });
+const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localStorageKeys: ["spinners-supabase-url"], queryKeys: ["supabaseUrl"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseUrl });
+const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseKey });
 const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
 const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
 const LOCAL_STATE_CACHE_KEY = "spinners-cup-2026-state-cache";
