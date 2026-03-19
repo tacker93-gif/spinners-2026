@@ -1252,11 +1252,26 @@ function App() {
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
 
+  const refreshState = useCallback(async ({ shouldApply } = {}) => {
+    const next = await load();
+    if (next && (!shouldApply || shouldApply())) setState(DC(next));
+    return next;
+  }, []);
+
   useEffect(()=>{
     let alive=true;
-    load().then(s=>{if(alive&&s)setState(DC(s));});
-    return ()=>{alive=false;};
-  },[]);
+    let interval = null;
+
+    const syncState = () => refreshState({ shouldApply: () => alive });
+
+    syncState();
+    if (!cur) interval = window.setInterval(syncState, 4000);
+
+    return ()=>{
+      alive=false;
+      if (interval) window.clearInterval(interval);
+    };
+  },[cur, refreshState]);
   useEffect(()=>{
     if (lockedPlayerId && PLAYERS.some(p => p.id === lockedPlayerId)) {
       setCur(lockedPlayerId);
@@ -1266,8 +1281,8 @@ function App() {
   },[lockedPlayerId]);
   useEffect(()=>{
     if(!cur) return;
-    load().then(s=>{if(s)setState(DC(s));});
-  },[cur,tab,sub]);
+    refreshState();
+  },[cur,tab,sub,refreshState]);
 
   useEffect(() => {
     const onOnline = () => flushQueuedSave();
@@ -1303,7 +1318,7 @@ function App() {
 
   return (
     <div style={S.app}>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}} onRefresh={isAdmin ? refreshState : null}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} cur={cur} upd={upd} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
@@ -1453,7 +1468,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
   );
 }
 
-function Header({isAdmin,name,playerId,live,onBack}){
+function Header({isAdmin,name,playerId,live,onBack,onRefresh}){
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
@@ -1465,7 +1480,12 @@ function Header({isAdmin,name,playerId,live,onBack}){
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
         </div>
-        <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
+        <div style={{width:72,display:"flex",justifyContent:"center",alignItems:"center",gap:8}}>
+          {isAdmin && onRefresh ? (
+            <button onClick={onRefresh} aria-label="Refresh shared app data" title="Refresh shared app data" style={{width:32,height:32,borderRadius:999,border:"1px solid #cbd5e1",background:"#fff",color:"#2d6a4f",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>↻</button>
+          ) : null}
+          {playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}
+        </div>
       </div>
     </div>
   );
