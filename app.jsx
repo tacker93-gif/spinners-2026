@@ -1383,11 +1383,11 @@ function App() {
   }, [refreshState]);
 
   useEffect(() => {
-    if (!cur || cur === "admin" || cur === "spectator") return;
+    if (!state || !cur || cur === "admin" || cur === "spectator") return;
     const released = Object.values(state.dailySummaries || {}).sort((a,b) => new Date(b.releasedAt||0) - new Date(a.releasedAt||0));
     const unseen = released.find(s => !state.summaryReads?.[cur]?.[s.roundId]);
     if (unseen) setSummaryPopup(unseen);
-  }, [cur, state.dailySummaries, state.summaryReads]);
+  }, [cur, state?.dailySummaries, state?.summaryReads]);
   const upd=useCallback(fn=>{
     setState(prev=>{
       const base = DC(prev || DEFAULT_STATE);
