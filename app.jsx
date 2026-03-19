@@ -1457,10 +1457,20 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
   const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);const [unlockReady,setUnlockReady]=useState(false);const [selectionErr,setSelectionErr]=useState("");const [isSubmitting,setIsSubmitting]=useState(false);
   const live = !!state?.eventLive;
   const playerOrder = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
+  const [selectedPlayerId,setSelectedPlayerId]=useState(lockedPlayerId || "");
   const displayPlayers = playerOrder
     .map(id => getP(id))
-    .filter(p => p && (!state?.playerLocks?.[p.id] || p.id === lockedPlayerId));
-  const [selectedPlayerId,setSelectedPlayerId]=useState(lockedPlayerId || "");
+    .filter(Boolean)
+    .map(player => {
+      const isClaimed = !!state?.playerLocks?.[player.id];
+      const isLockedHere = lockedPlayerId === player.id;
+      return {
+        ...player,
+        isClaimed,
+        isLockedHere,
+        isSelectable: isLockedHere || (!lockedPlayerId && !isClaimed),
+      };
+    });
   const verifyAdminCode = () => {
     if (ADMIN_CODE && code.trim() === ADMIN_CODE) {
       setErr(false);
@@ -1489,19 +1499,55 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           )}
           <button onClick={onSpectator} aria-label="Open spectator mode" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",background:"#fff",color:"#334155",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>👀 Spectator</button>
         </div>
-        <p style={{fontSize:11,color:"#94a3b8",marginBottom:12,textAlign:"center"}}>Players: select your name then submit · Spectators: use spectator mode.</p>
+        <p style={{fontSize:11,color:"#94a3b8",marginBottom:12,textAlign:"center"}}>Players: available names can be selected once only. Claimed players stay visible but cannot be selected again.</p>
         <div style={{marginBottom:20}}>
-          <select
-            value={selectedPlayerId}
-            disabled={!!lockedPlayerId || isSubmitting}
-            onChange={e=>{setSelectedPlayerId(e.target.value);setSelectionErr("");}}
-            style={{...S.input,marginBottom:10,cursor:(lockedPlayerId||isSubmitting)?"not-allowed":"pointer",opacity:(lockedPlayerId||isSubmitting)?0.7:1}}
-          >
-            <option value="">Select your name</option>
-            {displayPlayers.map(p=>(
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          <div style={{display:"grid",gap:8,marginBottom:10}}>
+            {displayPlayers.map(p=>{
+              const isSelected = selectedPlayerId === p.id;
+              const blockedByDevice = !!lockedPlayerId && lockedPlayerId !== p.id;
+              const isDisabled = isSubmitting || blockedByDevice || !p.isSelectable;
+              const statusLabel = p.isLockedHere ? "Locked on this phone" : p.isClaimed ? "Claimed" : "Available";
+              const statusColor = p.isLockedHere ? "#166534" : p.isClaimed ? "#991b1b" : "#2563eb";
+              const borderColor = isSelected ? "#2d6a4f" : p.isLockedHere ? "#16a34a" : p.isClaimed ? "#fecaca" : "#cbd5e1";
+              const background = isSelected ? "#f0fdf4" : p.isLockedHere ? "#f0fdf4" : p.isClaimed ? "#fff5f5" : "#fff";
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={()=>{
+                    if (isDisabled) return;
+                    setSelectedPlayerId(p.id);
+                    setSelectionErr("");
+                  }}
+                  disabled={isDisabled}
+                  aria-pressed={isSelected}
+                  style={{
+                    width:"100%",
+                    display:"flex",
+                    alignItems:"center",
+                    justifyContent:"space-between",
+                    gap:12,
+                    padding:"12px 14px",
+                    borderRadius:12,
+                    border:`1px solid ${borderColor}`,
+                    background,
+                    cursor:isDisabled?"not-allowed":"pointer",
+                    opacity:isDisabled && !p.isLockedHere ? 0.72 : 1,
+                    textAlign:"left",
+                    fontFamily:"'DM Sans',sans-serif",
+                  }}
+                >
+                  <span style={{display:"flex",flexDirection:"column",gap:2}}>
+                    <span style={{fontSize:14,fontWeight:700,color:"#1e293b"}}>{p.name}</span>
+                    <span style={{fontSize:11,color:"#64748b"}}>
+                      {p.isLockedHere ? "This device is assigned to this player." : p.isClaimed ? "Already selected on another device." : "Ready to claim on this device."}
+                    </span>
+                  </span>
+                  <span style={{fontSize:11,fontWeight:700,color:statusColor,whiteSpace:"nowrap"}}>{statusLabel}</span>
+                </button>
+              );
+            })}
+          </div>
           <button
             onClick={async()=>{
               if(!selectedPlayerId || isSubmitting) return;
