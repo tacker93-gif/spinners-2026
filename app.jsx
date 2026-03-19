@@ -1261,6 +1261,8 @@ async function copyText(text) {
   }
 }
 
+const LIVE_SYNC_INTERVAL_MS = 4000;
+
 function App() {
   const [state,setState]=useState(()=>DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
@@ -1271,27 +1273,33 @@ function App() {
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
+  const refreshInFlightRef = useRef(false);
 
-  const refreshState = useCallback(async ({ shouldApply } = {}) => {
-    const next = await load();
-    if (next && (!shouldApply || shouldApply())) setState(DC(next));
-    return next;
+  const refreshState = useCallback(async ({ shouldApply, force = false } = {}) => {
+    if (refreshInFlightRef.current && !force) return null;
+    refreshInFlightRef.current = true;
+    try {
+      const next = await load();
+      if (next && (!shouldApply || shouldApply())) setState(DC(next));
+      return next;
+    } finally {
+      refreshInFlightRef.current = false;
+    }
   }, []);
 
   useEffect(()=>{
     let alive=true;
-    let interval = null;
 
     const syncState = () => refreshState({ shouldApply: () => alive });
 
     syncState();
-    if (!cur) interval = window.setInterval(syncState, 4000);
+    const interval = window.setInterval(syncState, LIVE_SYNC_INTERVAL_MS);
 
     return ()=>{
       alive=false;
-      if (interval) window.clearInterval(interval);
+      window.clearInterval(interval);
     };
-  },[cur, refreshState]);
+  },[refreshState]);
   useEffect(()=>{
     if (lockedPlayerId && PLAYERS.some(p => p.id === lockedPlayerId)) {
       setCur(lockedPlayerId);
@@ -1304,20 +1312,21 @@ function App() {
     refreshState();
   },[cur,tab,sub,refreshState]);
   useEffect(() => {
-    if (cur) return;
     const syncState = () => refreshState();
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") syncState();
     };
     window.addEventListener("focus", syncState);
     window.addEventListener("pageshow", syncState);
+    window.addEventListener("storage", syncState);
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("focus", syncState);
       window.removeEventListener("pageshow", syncState);
+      window.removeEventListener("storage", syncState);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [cur, refreshState]);
+  }, [refreshState]);
 
 
   useEffect(() => {
