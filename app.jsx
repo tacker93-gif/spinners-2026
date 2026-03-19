@@ -99,8 +99,12 @@ async function load() {
     if (cached) return cached;
     return DC(DEFAULT_STATE);
   }
+  const params = new URLSearchParams({
+    id: `eq.${DB_ROW_ID}`,
+    select: "data",
+  });
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data`,
+    `${SUPABASE_URL}/rest/v1/app_state?${params.toString()}`,
     {
       cache: "no-store",
       headers: {
@@ -129,21 +133,68 @@ function createRealtimeClient() {
   });
 }
 
+async function readSupabaseError(res) {
+  if (!res || res.ok) return "";
+  try {
+    const payload = await res.clone().json();
+    return payload?.message || payload?.hint || payload?.details || "";
+  } catch {}
+  try {
+    return (await res.text()).trim();
+  } catch {
+    return "";
+  }
+}
+
 async function writeRemoteState(nextState) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return true;
-  const payload = { id: DB_ROW_ID, data: nextState, updated_at: new Date().toISOString() };
-  const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?on_conflict=id`,
+  if (!SUPABASE_URL || !SUPABASE_KEY) return { ok: true };
+
+  const now = new Date().toISOString();
+  const rowPayload = { id: DB_ROW_ID, data: nextState, updated_at: now };
+  const updatePayload = { data: nextState, updated_at: now };
+  const rowFilter = new URLSearchParams({
+    id: `eq.${DB_ROW_ID}`,
+    select: "id",
+  });
+
+  const updateRes = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/app_state?${rowFilter.toString()}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...supabaseHeaders,
+        "Prefer": "return=representation",
+      },
+      body: JSON.stringify(updatePayload),
+    }
+  );
+
+  if (updateRes?.ok) {
+    const rows = await updateRes.json().catch(() => []);
+    if (Array.isArray(rows) && rows.length > 0) {
+      return { ok: true };
+    }
+  } else {
+    const updateError = await readSupabaseError(updateRes);
+    return { ok: false, error: updateError || `Supabase update failed (${updateRes?.status || "unknown"})` };
+  }
+
+  const insertRes = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/app_state`,
     {
       method: "POST",
       headers: {
         ...supabaseHeaders,
-        "Prefer": "resolution=merge-duplicates,return=minimal",
+        "Prefer": "return=minimal",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(rowPayload),
     }
   );
-  return !!res?.ok;
+
+  if (insertRes?.ok) return { ok: true };
+
+  const insertError = await readSupabaseError(insertRes);
+  return { ok: false, error: insertError || `Supabase insert failed (${insertRes?.status || "unknown"})` };
 }
 
 async function save(s) {
@@ -154,9 +205,9 @@ async function save(s) {
     throw new Error("Device is offline");
   }
 
-  const ok = await writeRemoteState(s);
-  if (!ok) {
-    throw new Error("Supabase rejected the update");
+  const result = await writeRemoteState(s);
+  if (!result?.ok) {
+    throw new Error(result?.error || "Supabase rejected the update");
   }
 }
 
