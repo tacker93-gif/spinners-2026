@@ -61,6 +61,8 @@ const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localSto
 const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseKey });
 const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
 const STATE_CACHE_KEY = `${DB_ROW_ID}-state-cache`;
+const DEVICE_ID_KEY = `${DB_ROW_ID}-device-id`;
+const SLEDGE_READS_STORAGE_KEY = `${DB_ROW_ID}-sledge-reads`;
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -91,6 +93,54 @@ function cacheStateSnapshot(nextState) {
   try {
     window.localStorage.setItem(STATE_CACHE_KEY, JSON.stringify(nextState));
   } catch {}
+}
+
+function createDeviceId() {
+  try {
+    if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  } catch {}
+  return `device_${Math.random().toString(36).slice(2)}_${Date.now().toString(36)}`;
+}
+
+function getDeviceId() {
+  try {
+    const existing = window.localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const next = createDeviceId();
+    window.localStorage.setItem(DEVICE_ID_KEY, next);
+    return next;
+  } catch {
+    return "device_fallback";
+  }
+}
+
+function getSledgeReadsStorageKey(viewerId) {
+  return `${SLEDGE_READS_STORAGE_KEY}:${viewerId}:${getDeviceId()}`;
+}
+
+function readLocalSledgeReads(viewerId) {
+  if (!viewerId) return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(getSledgeReadsStorageKey(viewerId)) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function markLocalSledgeReads(viewerId, itemIds) {
+  if (!viewerId || !itemIds?.length) return null;
+  const next = { ...readLocalSledgeReads(viewerId) };
+  let changed = false;
+  itemIds.forEach(id => {
+    if (!id || next[id]) return;
+    next[id] = true;
+    changed = true;
+  });
+  if (!changed) return null;
+  try {
+    window.localStorage.setItem(getSledgeReadsStorageKey(viewerId), JSON.stringify(next));
+  } catch {}
+  return next;
 }
 
 async function load() {
@@ -1713,6 +1763,8 @@ function LockedMessage({title,msg,onBack}){
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({state,cur,upd,onMatch,live,isAdmin}){
+  const activeViewer = cur && cur !== "admin" && cur !== "spectator" ? cur : null;
+  const [localSledgeReads, setLocalSledgeReads] = useState(() => readLocalSledgeReads(activeViewer));
   let bT=0,gT=0,bLive=0,gLive=0;
   ROUNDS.forEach(r=>{
     if(!isRoundRevealed(state,r.id,live,isAdmin)) return;
@@ -1736,24 +1788,24 @@ function CupScreen({state,cur,upd,onMatch,live,isAdmin}){
   const blockFill=(points,idx)=>clamp(points-idx,0,1);
   const segStep=0.5;
   const segments=Array.from({length:Math.round(totalPoints/segStep)},(_,i)=>i+1);
-  const activeViewer = cur && cur !== "admin" && cur !== "spectator" ? cur : null;
-  const sledgeFeed = (state.sledgeFeed || []).filter(item => !activeViewer || !state.sledgeReads?.[activeViewer]?.[item.id]).slice(0, 5);
+  useEffect(() => {
+    setLocalSledgeReads(readLocalSledgeReads(activeViewer));
+  }, [activeViewer]);
+
+  useEffect(() => {
+    if (!activeViewer) return undefined;
+    const syncReads = () => setLocalSledgeReads(readLocalSledgeReads(activeViewer));
+    window.addEventListener("storage", syncReads);
+    return () => window.removeEventListener("storage", syncReads);
+  }, [activeViewer]);
+
+  const sledgeFeed = (state.sledgeFeed || []).filter(item => !activeViewer || !localSledgeReads?.[item.id]).slice(0, 5);
 
   useEffect(() => {
     if (!activeViewer || !sledgeFeed.length) return;
-    upd(s => {
-      if (!s.sledgeReads) s.sledgeReads = {};
-      if (!s.sledgeReads[activeViewer]) s.sledgeReads[activeViewer] = {};
-      let changed = false;
-      sledgeFeed.forEach(item => {
-        if (!s.sledgeReads[activeViewer][item.id]) {
-          s.sledgeReads[activeViewer][item.id] = true;
-          changed = true;
-        }
-      });
-      if (!changed) return;
-    });
-  }, [activeViewer, sledgeFeed, upd]);
+    const nextReads = markLocalSledgeReads(activeViewer, sledgeFeed.map(item => item.id));
+    if (nextReads) setLocalSledgeReads(nextReads);
+  }, [activeViewer, sledgeFeed]);
 
   const statusSeg=(side,segVal)=>{
     const official=side==="blue"?bT:gT;
