@@ -1,4 +1,5 @@
 const { useState, useEffect, useCallback, useRef } = React;
+const supabaseClientFactory = window.supabase?.createClient || null;
 
 const runtimeConfig = window.__SPINNERS_CONFIG || {};
 const DEFAULT_REMOTE_CONFIG = {
@@ -59,8 +60,6 @@ function resolveConfigValue({ runtimeKeys = [], localStorageKeys = [], queryKeys
 const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localStorageKeys: ["spinners-supabase-url"], queryKeys: ["supabaseUrl"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseUrl });
 const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseKey });
 const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
-const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
-const LOCAL_STATE_CACHE_KEY = "spinners-cup-2026-state-cache";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -79,74 +78,34 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
 }
 
 async function load() {
-  const localState = getLocalStateCache();
-  try {
-    if (SUPABASE_URL && SUPABASE_KEY) {
-      const cacheBust = Date.now();
-      const res = await fetchWithTimeout(
-        `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
-        {
-          cache: "no-store",
-          headers: {
-            "apikey": SUPABASE_KEY,
-            "Authorization": `Bearer ${SUPABASE_KEY}`,
-            "Cache-Control": "no-cache",
-          },
-        }
-      );
-      if (res.ok) {
-        const rows = await res.json();
-        if (rows?.[0]?.data && Object.keys(rows[0].data).length > 0) {
-          const normalized = normalizeState(rows[0].data);
-          if (normalized) {
-            setLocalStateCache(normalized);
-            return normalized;
-          }
-        }
-      }
+  if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase config missing");
+  const cacheBust = Date.now();
+  const res = await fetchWithTimeout(
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
+    {
+      cache: "no-store",
+      headers: {
+        "apikey": SUPABASE_KEY,
+        "Authorization": `Bearer ${SUPABASE_KEY}`,
+        "Cache-Control": "no-cache",
+      },
     }
-    const pending = getPendingSave();
-    return normalizeState(pending?.state) || localState;
-  } catch {
-    const pending = getPendingSave();
-    return normalizeState(pending?.state) || localState;
+  );
+
+  if (!res.ok) {
+    throw new Error(`Failed to load remote state (${res.status})`);
   }
+
+  const rows = await res.json();
+  return normalizeState(rows?.[0]?.data) || DC(DEFAULT_STATE);
 }
 
-function getLocalStateCache() {
-  try {
-    const raw = localStorage.getItem(LOCAL_STATE_CACHE_KEY);
-    return normalizeState(raw ? JSON.parse(raw) : null);
-  } catch {
-    return null;
-  }
-}
-
-function setLocalStateCache(state) {
-  try {
-    localStorage.setItem(LOCAL_STATE_CACHE_KEY, JSON.stringify(state));
-  } catch {}
-}
-
-function queuePendingSave(state) {
-  try {
-    localStorage.setItem(SAVE_QUEUE_KEY, JSON.stringify({ state, at: Date.now() }));
-  } catch {}
-}
-
-function clearPendingSave() {
-  try {
-    localStorage.removeItem(SAVE_QUEUE_KEY);
-  } catch {}
-}
-
-function getPendingSave() {
-  try {
-    const raw = localStorage.getItem(SAVE_QUEUE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
+function createRealtimeClient() {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !supabaseClientFactory) return null;
+  return supabaseClientFactory(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    realtime: { params: { eventsPerSecond: 10 } },
+  });
 }
 
 async function writeRemoteState(nextState) {
@@ -166,35 +125,17 @@ async function writeRemoteState(nextState) {
   return !!res?.ok;
 }
 
-async function flushQueuedSave() {
-  const pending = getPendingSave();
-  if (!pending?.state) return true;
-  if (!navigator.onLine) return false;
-  try {
-    const ok = await writeRemoteState(pending.state);
-    if (ok) clearPendingSave();
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
 async function save(s) {
-  setLocalStateCache(s);
-  if (!SUPABASE_URL || !SUPABASE_KEY) return;
-  try {
-    if (!navigator.onLine) {
-      queuePendingSave(s);
-      return;
-    }
-    const ok = await writeRemoteState(s);
-    if (!ok) {
-      queuePendingSave(s);
-      return;
-    }
-    clearPendingSave();
-  } catch {
-    queuePendingSave(s);
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    throw new Error("Supabase config missing");
+  }
+  if (!navigator.onLine) {
+    throw new Error("Device is offline");
+  }
+
+  const ok = await writeRemoteState(s);
+  if (!ok) {
+    throw new Error("Supabase rejected the update");
   }
 }
 
@@ -1326,10 +1267,10 @@ async function copyText(text) {
   }
 }
 
-const LIVE_SYNC_INTERVAL_MS = 4000;
+const LIVE_SYNC_INTERVAL_MS = 15000;
 
 function App() {
-  const [state,setState]=useState(()=>getLocalStateCache() || DC(DEFAULT_STATE));
+  const [state,setState]=useState(null);
   const [isAdmin,setIsAdmin]=useState(false);
   const [isSpectator,setIsSpectator]=useState(false);
   const [cur,setCur]=useState(null);
@@ -1338,15 +1279,26 @@ function App() {
   const [lockedPlayerId,setLockedPlayerId]=useState(()=>localStorage.getItem(PLAYER_LOCK_KEY));
   const [summaryPopup,setSummaryPopup]=useState(null);
   const [hasAccess,setHasAccess]=useState(()=>localStorage.getItem(ACCESS_GRANTED_KEY)==="1");
+  const [syncError, setSyncError] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
   const refreshInFlightRef = useRef(false);
+  const saveVersionRef = useRef(0);
 
   const refreshState = useCallback(async ({ shouldApply, force = false } = {}) => {
     if (refreshInFlightRef.current && !force) return null;
     refreshInFlightRef.current = true;
     try {
       const next = await load();
-      if (next && (!shouldApply || shouldApply())) setState(DC(next));
+      if (next && (!shouldApply || shouldApply())) {
+        setState(DC(next));
+        setSyncError("");
+      }
       return next;
+    } catch (error) {
+      if (!shouldApply || shouldApply()) {
+        setSyncError(error?.message || "Unable to sync with Supabase.");
+      }
+      return null;
     } finally {
       refreshInFlightRef.current = false;
     }
@@ -1362,6 +1314,37 @@ function App() {
       window.clearInterval(interval);
     };
   },[refreshState]);
+
+  useEffect(() => {
+    const client = createRealtimeClient();
+    if (!client) return undefined;
+
+    const channel = client
+      .channel(`spinners-app-state-${DB_ROW_ID}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "app_state", filter: `id=eq.${DB_ROW_ID}` },
+        payload => {
+          const remoteState = normalizeState(payload.new?.data);
+          if (remoteState) {
+            setState(DC(remoteState));
+            setSyncError("");
+          } else {
+            refreshState({ force: true });
+          }
+        }
+      )
+      .subscribe(status => {
+        if (status === "CHANNEL_ERROR") {
+          setSyncError("Realtime sync disconnected. Falling back to refresh.");
+        }
+      });
+
+    return () => {
+      client.removeChannel(channel);
+      client.removeAllChannels();
+    };
+  }, [refreshState]);
   useEffect(()=>{
     if (lockedPlayerId && PLAYERS.some(p => p.id === lockedPlayerId)) {
       setCur(lockedPlayerId);
@@ -1392,12 +1375,8 @@ function App() {
   }, [refreshState]);
 
   useEffect(() => {
-    const onOnline = () => {
-      flushQueuedSave();
-      refreshState();
-    };
+    const onOnline = () => refreshState({ force: true });
     window.addEventListener("online", onOnline);
-    flushQueuedSave();
     return () => {
       window.removeEventListener("online", onOnline);
     };
@@ -1409,7 +1388,32 @@ function App() {
     const unseen = released.find(s => !state.summaryReads?.[cur]?.[s.roundId]);
     if (unseen) setSummaryPopup(unseen);
   }, [cur, state.dailySummaries, state.summaryReads]);
-  const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
+  const upd=useCallback(fn=>{
+    setState(prev=>{
+      const base = DC(prev || DEFAULT_STATE);
+      const previous = DC(base);
+      fn(base);
+      const next = base;
+      const saveVersion = ++saveVersionRef.current;
+      setIsSaving(true);
+      setSyncError("");
+      Promise.resolve(save(next))
+        .then(() => {
+          if (saveVersion === saveVersionRef.current) {
+            setIsSaving(false);
+            setSyncError("");
+          }
+        })
+        .catch(error => {
+          if (saveVersion !== saveVersionRef.current) return;
+          setIsSaving(false);
+          setSyncError(error?.message || "Unable to save to Supabase.");
+          setState(previous);
+          refreshState({ force: true });
+        });
+      return next;
+    });
+  },[refreshState]);
 
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
   if(!hasAccess) return <AccessGate onGrant={()=>{localStorage.setItem(ACCESS_GRANTED_KEY,"1");setHasAccess(true);}} />;
@@ -1419,6 +1423,11 @@ function App() {
 
   return (
     <div style={S.app}>
+      {(syncError || isSaving) && (
+        <div style={{padding:"10px 14px",background:syncError?"#fef2f2":"#eff6ff",color:syncError?"#991b1b":"#1d4ed8",fontSize:12,fontWeight:600,textAlign:"center",borderBottom:`1px solid ${syncError?"#fecaca":"#bfdbfe"}`}}>
+          {syncError || "Syncing changes to Supabase…"}
+        </div>
+      )}
       <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} cur={cur} upd={upd} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
