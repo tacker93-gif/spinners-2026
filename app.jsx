@@ -38,7 +38,6 @@ const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
   "Authorization": `Bearer ${SUPABASE_KEY}`,
   "Content-Type": "application/json",
-  "Prefer": "return=minimal",
 };
 
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
@@ -124,12 +123,16 @@ function getPendingSave() {
 
 async function writeRemoteState(nextState) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return true;
+  const payload = { id: DB_ROW_ID, data: nextState, updated_at: new Date().toISOString() };
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}`,
+    `${SUPABASE_URL}/rest/v1/app_state?on_conflict=id`,
     {
-      method: "PATCH",
-      headers: supabaseHeaders,
-      body: JSON.stringify({ data: nextState, updated_at: new Date().toISOString() }),
+      method: "POST",
+      headers: {
+        ...supabaseHeaders,
+        "Prefer": "resolution=merge-duplicates,return=minimal",
+      },
+      body: JSON.stringify(payload),
     }
   );
   return !!res?.ok;
