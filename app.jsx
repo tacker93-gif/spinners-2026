@@ -802,6 +802,7 @@ const DEFAULT_STATE = {
   ldWinners:{},
   chulligans:{},
   submitted:{},
+  playerLocks:{},
   dailySummaries:{},
   dailySummaryDrafts:{},
   sledgeFeed:[],
@@ -1285,9 +1286,18 @@ function App() {
   }, [cur, state.dailySummaries, state.summaryReads]);
   const upd=useCallback(fn=>{setState(prev=>{const next=DC(prev);fn(next);save(next);return next;});},[]);
 
+  useEffect(() => {
+    if (!lockedPlayerId || !PLAYERS.some(p => p.id === lockedPlayerId)) return;
+    if (state.playerLocks?.[lockedPlayerId]) return;
+    upd(s => {
+      if (!s.playerLocks) s.playerLocks = {};
+      s.playerLocks[lockedPlayerId] = true;
+    });
+  }, [lockedPlayerId, state.playerLocks, upd]);
+
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
   if(!hasAccess) return <AccessGate onGrant={()=>{localStorage.setItem(ACCESS_GRANTED_KEY,"1");setHasAccess(true);}} />;
-  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c.trim()===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
+  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){upd(s=>{if(!s.playerLocks)s.playerLocks={}; s.playerLocks[id]=true;}); localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{const playerId=lockedPlayerId; if(playerId){upd(s=>{if(s.playerLocks?.[playerId]) delete s.playerLocks[playerId];});} localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c.trim()===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
 
@@ -1381,7 +1391,9 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
   const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);const [unlockReady,setUnlockReady]=useState(false);
   const live = !!state?.eventLive;
   const playerOrder = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
-  const displayPlayers = playerOrder.map(id => getP(id)).filter(Boolean);
+  const displayPlayers = playerOrder
+    .map(id => getP(id))
+    .filter(p => p && (!state?.playerLocks?.[p.id] || p.id === lockedPlayerId));
   const [selectedPlayerId,setSelectedPlayerId]=useState(lockedPlayerId || "");
   const verifyAdminCode = () => {
     if (ADMIN_CODE && code.trim() === ADMIN_CODE) {
