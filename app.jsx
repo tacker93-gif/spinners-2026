@@ -1291,15 +1291,34 @@ function App() {
     if(!cur) return;
     refreshState();
   },[cur,tab,sub,refreshState]);
+  useEffect(() => {
+    if (cur) return;
+    const syncState = () => refreshState();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") syncState();
+    };
+    window.addEventListener("focus", syncState);
+    window.addEventListener("pageshow", syncState);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", syncState);
+      window.removeEventListener("pageshow", syncState);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [cur, refreshState]);
+
 
   useEffect(() => {
-    const onOnline = () => flushQueuedSave();
+    const onOnline = () => {
+      flushQueuedSave();
+      refreshState();
+    };
     window.addEventListener("online", onOnline);
     flushQueuedSave();
     return () => {
       window.removeEventListener("online", onOnline);
     };
-  }, []);
+  }, [refreshState]);
 
   useEffect(() => {
     if (!cur || cur === "admin" || cur === "spectator") return;
@@ -1318,15 +1337,39 @@ function App() {
     });
   }, [lockedPlayerId, state.playerLocks, upd]);
 
+  const handlePlayerSelect = useCallback(async id => {
+    if (!id) return { ok:false, reason:"missing" };
+    if (lockedPlayerId && lockedPlayerId !== id) return { ok:false, reason:"device-locked" };
+
+    const latest = await refreshState();
+    if (latest?.playerLocks?.[id] && lockedPlayerId !== id) {
+      return { ok:false, reason:"already-taken" };
+    }
+
+    if (!lockedPlayerId) {
+      upd(s => {
+        if (!s.playerLocks) s.playerLocks = {};
+        s.playerLocks[id] = true;
+      });
+      localStorage.setItem(PLAYER_LOCK_KEY,id);
+      setLockedPlayerId(id);
+    }
+    setIsSpectator(false);
+    setCur(id);
+    setTab("cup");
+    setSub(null);
+    return { ok:true };
+  }, [lockedPlayerId, refreshState, upd]);
+
   if(!state) return <div style={S.loading}><div style={S.spinner}/><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>;
   if(!hasAccess) return <AccessGate onGrant={()=>{localStorage.setItem(ACCESS_GRANTED_KEY,"1");setHasAccess(true);}} />;
-  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={id=>{if(lockedPlayerId&&lockedPlayerId!==id)return; if(!lockedPlayerId){upd(s=>{if(!s.playerLocks)s.playerLocks={}; s.playerLocks[id]=true;}); localStorage.setItem(PLAYER_LOCK_KEY,id);setLockedPlayerId(id);}setIsSpectator(false);setCur(id);setTab("cup");setSub(null);}} onUnlockSelection={()=>{const playerId=lockedPlayerId; if(playerId){upd(s=>{if(s.playerLocks?.[playerId]) delete s.playerLocks[playerId];});} localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c.trim()===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
+  if(!cur) return <PlayerSelect state={state} lockedPlayerId={lockedPlayerId} onSelect={handlePlayerSelect} onUnlockSelection={()=>{const playerId=lockedPlayerId; if(playerId){upd(s=>{if(s.playerLocks?.[playerId]) delete s.playerLocks[playerId];});} localStorage.removeItem(PLAYER_LOCK_KEY);setLockedPlayerId(null);}} onSpectator={()=>{setIsAdmin(false);setIsSpectator(true);setCur("spectator");setTab("cup");setSub(null);}} onAdmin={c=>{if(c.trim()===ADMIN_CODE){setIsAdmin(true);setIsSpectator(false);setCur("admin");setTab("cup");setSub(null);}}} />;
 
   const live = !!state.eventLive || isAdmin;
 
   return (
     <div style={S.app}>
-      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}} onRefresh={isAdmin ? refreshState : null}/>
+      <Header isAdmin={isAdmin} name={isAdmin?"Admin":isSpectator?"Spectator":getP(cur)?.short} playerId={isAdmin||isSpectator?null:cur} live={live} onBack={()=>{if(sub){setSub(null);return;}setCur(null);setIsAdmin(false);setIsSpectator(false);}}/>
       <div style={S.content}>
         {tab==="cup"&&!sub&&<CupScreen state={state} cur={cur} upd={upd} onMatch={id=>setSub({t:"m",id})} live={live} isAdmin={isAdmin}/>}
         {tab==="cup"&&sub?.t==="m"&&(live?<MatchView state={state} upd={upd} isAdmin={isAdmin} matchId={sub.id} onBack={()=>setSub(null)}/>:<LockedMessage title="Match Details" msg="Match details will be revealed on game day." onBack={()=>setSub(null)}/>)}
@@ -1411,7 +1454,7 @@ function AccessGate({onGrant}){
 }
 
 function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectator,onAdmin}){
-  const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);const [unlockReady,setUnlockReady]=useState(false);
+  const [showA,setShowA]=useState(false);const [code,setCode]=useState("");const [err,setErr]=useState(false);const [unlockReady,setUnlockReady]=useState(false);const [selectionErr,setSelectionErr]=useState("");const [isSubmitting,setIsSubmitting]=useState(false);
   const live = !!state?.eventLive;
   const playerOrder = ["chris","angus","jason","tom","alex","nick","cam","callum","luke","jturner","lach","jkelly"];
   const displayPlayers = playerOrder
@@ -1450,9 +1493,9 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
         <div style={{marginBottom:20}}>
           <select
             value={selectedPlayerId}
-            disabled={!!lockedPlayerId}
-            onChange={e=>setSelectedPlayerId(e.target.value)}
-            style={{...S.input,marginBottom:10,cursor:lockedPlayerId?"not-allowed":"pointer",opacity:lockedPlayerId?0.7:1}}
+            disabled={!!lockedPlayerId || isSubmitting}
+            onChange={e=>{setSelectedPlayerId(e.target.value);setSelectionErr("");}}
+            style={{...S.input,marginBottom:10,cursor:(lockedPlayerId||isSubmitting)?"not-allowed":"pointer",opacity:(lockedPlayerId||isSubmitting)?0.7:1}}
           >
             <option value="">Select your name</option>
             {displayPlayers.map(p=>(
@@ -1460,13 +1503,29 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
             ))}
           </select>
           <button
-            onClick={()=>selectedPlayerId&&onSelect(selectedPlayerId)}
-            disabled={!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId)}
-            style={{width:"100%",padding:"11px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:(!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?"not-allowed":"pointer",fontSize:14,minHeight:44,opacity:(!selectedPlayerId || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?0.55:1}}
+            onClick={async()=>{
+              if(!selectedPlayerId || isSubmitting) return;
+              setSelectionErr("");
+              setIsSubmitting(true);
+              const result = await onSelect(selectedPlayerId);
+              setIsSubmitting(false);
+              if (result?.ok) return;
+              if (result?.reason === "already-taken") {
+                setSelectedPlayerId("");
+                setSelectionErr("That player was just claimed on another device. Please choose another name.");
+                return;
+              }
+              if (result?.reason === "device-locked") {
+                setSelectionErr("This device is already locked to a different player.");
+              }
+            }}
+            disabled={!selectedPlayerId || isSubmitting || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId)}
+            style={{width:"100%",padding:"11px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:(!selectedPlayerId || isSubmitting || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?"not-allowed":"pointer",fontSize:14,minHeight:44,opacity:(!selectedPlayerId || isSubmitting || (!!lockedPlayerId && lockedPlayerId!==selectedPlayerId))?0.55:1}}
           >
-            Submit
+            {isSubmitting?"Checking…":"Submit"}
           </button>
         </div>
+        {selectionErr&&<p style={{color:"#dc2626",fontSize:12,marginTop:-8,marginBottom:8,textAlign:"center"}}>{selectionErr}</p>}
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
         {lockedPlayerId&&showA&&<button onClick={()=>{if(verifyAdminCode())onUnlockSelection();}} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:unlockReady?"#fff":"#fff5f5",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
         {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>{ADMIN_CODE ? "Incorrect code" : "Admin code not configured"}</p>}
@@ -1476,7 +1535,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
   );
 }
 
-function Header({isAdmin,name,playerId,live,onBack,onRefresh}){
+function Header({isAdmin,name,playerId,live,onBack}){
   return(
     <div style={S.header}>
       <button onClick={onBack} style={{background:"none",border:"none",color:"#2d6a4f",cursor:"pointer",padding:4}}>
@@ -1488,12 +1547,7 @@ function Header({isAdmin,name,playerId,live,onBack,onRefresh}){
           <h1 style={{fontFamily:"'Playfair Display',serif",fontSize:17,fontWeight:800,color:"#1a2e1a",margin:0}}>Spinners Cup 2026</h1>
           <p style={{fontSize:10,color:"#94a3b8",margin:0}}>{isAdmin?"🔑 Admin":name}</p>
         </div>
-        <div style={{width:72,display:"flex",justifyContent:"center",alignItems:"center",gap:8}}>
-          {isAdmin && onRefresh ? (
-            <button onClick={onRefresh} aria-label="Refresh shared app data" title="Refresh shared app data" style={{width:32,height:32,borderRadius:999,border:"1px solid #cbd5e1",background:"#fff",color:"#2d6a4f",fontSize:16,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>↻</button>
-          ) : null}
-          {playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}
-        </div>
+        <div style={{width:72,display:"flex",justifyContent:"center"}}>{playerId ? <PlayerAvatar id={playerId} size={BANNER_PHOTO_SIZE} live={live} border={false} priority="high" /> : <div style={{width:BANNER_PHOTO_SIZE}} />}</div>
       </div>
     </div>
   );
