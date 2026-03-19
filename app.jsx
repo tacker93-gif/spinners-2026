@@ -32,6 +32,7 @@ const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localSto
 const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"] });
 const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
 const SAVE_QUEUE_KEY = "spinners-cup-2026-save-queue";
+const LOCAL_STATE_CACHE_KEY = "spinners-cup-2026-state-cache";
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -51,6 +52,7 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
 }
 
 async function load() {
+  const localState = getLocalStateCache();
   try {
     if (SUPABASE_URL && SUPABASE_KEY) {
       const cacheBust = Date.now();
@@ -67,15 +69,36 @@ async function load() {
       );
       if (res.ok) {
         const rows = await res.json();
-        if (rows?.[0]?.data && Object.keys(rows[0].data).length > 0) return rows[0].data;
+        if (rows?.[0]?.data && Object.keys(rows[0].data).length > 0) {
+          const normalized = normalizeState(rows[0].data);
+          if (normalized) {
+            setLocalStateCache(normalized);
+            return normalized;
+          }
+        }
       }
     }
     const pending = getPendingSave();
-    return pending?.state || null;
+    return normalizeState(pending?.state) || localState;
   } catch {
     const pending = getPendingSave();
-    return pending?.state || null;
+    return normalizeState(pending?.state) || localState;
   }
+}
+
+function getLocalStateCache() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STATE_CACHE_KEY);
+    return normalizeState(raw ? JSON.parse(raw) : null);
+  } catch {
+    return null;
+  }
+}
+
+function setLocalStateCache(state) {
+  try {
+    localStorage.setItem(LOCAL_STATE_CACHE_KEY, JSON.stringify(state));
+  } catch {}
 }
 
 function queuePendingSave(state) {
@@ -126,6 +149,7 @@ async function flushQueuedSave() {
 }
 
 async function save(s) {
+  setLocalStateCache(s);
   if (!SUPABASE_URL || !SUPABASE_KEY) return;
   try {
     if (!navigator.onLine) {
@@ -822,6 +846,29 @@ const DEFAULT_STATE = {
   teamNames:{...DEFAULT_TEAM_NAMES}
 };
 
+function normalizeState(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const next = DC(DEFAULT_STATE);
+  Object.assign(next, raw);
+  next.handicaps = { ...DEFAULT_STATE.handicaps, ...(raw.handicaps || {}) };
+  next.scores = raw.scores && typeof raw.scores === "object" ? raw.scores : {};
+  next.ntpWinners = raw.ntpWinners && typeof raw.ntpWinners === "object" ? raw.ntpWinners : {};
+  next.ldWinners = raw.ldWinners && typeof raw.ldWinners === "object" ? raw.ldWinners : {};
+  next.chulligans = raw.chulligans && typeof raw.chulligans === "object" ? raw.chulligans : {};
+  next.submitted = raw.submitted && typeof raw.submitted === "object" ? raw.submitted : {};
+  next.dailySummaries = raw.dailySummaries && typeof raw.dailySummaries === "object" ? raw.dailySummaries : {};
+  next.dailySummaryDrafts = raw.dailySummaryDrafts && typeof raw.dailySummaryDrafts === "object" ? raw.dailySummaryDrafts : {};
+  next.sledgeFeed = Array.isArray(raw.sledgeFeed) ? raw.sledgeFeed : [];
+  next.sledgeMeta = raw.sledgeMeta && typeof raw.sledgeMeta === "object" ? raw.sledgeMeta : {};
+  next.sledgeReads = raw.sledgeReads && typeof raw.sledgeReads === "object" ? raw.sledgeReads : {};
+  next.summaryReads = raw.summaryReads && typeof raw.summaryReads === "object" ? raw.summaryReads : {};
+  next.roundScoringLive = { ...DEFAULT_STATE.roundScoringLive, ...(raw.roundScoringLive || {}) };
+  next.tees = { ...DEFAULT_STATE.tees, ...(raw.tees || {}) };
+  next.teamNames = { ...DEFAULT_TEAM_NAMES, ...(raw.teamNames || {}) };
+  next.eventLive = !!raw.eventLive;
+  return next;
+}
+
 const SLEDGE_COOLDOWN_MS = 20 * 60 * 1000;
 
 function pickSledge(lines) {
@@ -1251,7 +1298,7 @@ async function copyText(text) {
 const LIVE_SYNC_INTERVAL_MS = 4000;
 
 function App() {
-  const [state,setState]=useState(()=>DC(DEFAULT_STATE));
+  const [state,setState]=useState(()=>getLocalStateCache() || DC(DEFAULT_STATE));
   const [isAdmin,setIsAdmin]=useState(false);
   const [isSpectator,setIsSpectator]=useState(false);
   const [cur,setCur]=useState(null);
