@@ -68,6 +68,17 @@ const supabaseHeaders = {
   "Content-Type": "application/json",
 };
 
+const REMOTE_SYNC_RETRY_DELAY_MS = 60000;
+let remoteSyncPausedUntil = 0;
+
+function isRemoteSyncPaused() {
+  return remoteSyncPausedUntil > Date.now();
+}
+
+function pauseRemoteSync() {
+  remoteSyncPausedUntil = Date.now() + REMOTE_SYNC_RETRY_DELAY_MS;
+}
+
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -94,8 +105,8 @@ function cacheStateSnapshot(nextState) {
 }
 
 async function load() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    const cached = readCachedState();
+  const cached = readCachedState();
+  if (!SUPABASE_URL || !SUPABASE_KEY || isRemoteSyncPaused()) {
     if (cached) return cached;
     return DC(DEFAULT_STATE);
   }
@@ -113,6 +124,10 @@ async function load() {
   );
 
   if (!res.ok) {
+    if (res.status >= 400 && res.status < 500) {
+      pauseRemoteSync();
+      throw new Error(`Remote sync is temporarily disabled after a ${res.status} response. Using cached scores on this device.`);
+    }
     throw new Error(`Failed to load remote state (${res.status})`);
   }
 
@@ -123,7 +138,7 @@ async function load() {
 }
 
 function createRealtimeClient() {
-  if (!SUPABASE_URL || !SUPABASE_KEY || !supabaseClientFactory) return null;
+  if (!SUPABASE_URL || !SUPABASE_KEY || !supabaseClientFactory || isRemoteSyncPaused()) return null;
   return supabaseClientFactory(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
     realtime: { params: { eventsPerSecond: 10 } },
@@ -131,7 +146,7 @@ function createRealtimeClient() {
 }
 
 async function writeRemoteState(nextState) {
-  if (!SUPABASE_URL || !SUPABASE_KEY) return true;
+  if (!SUPABASE_URL || !SUPABASE_KEY || isRemoteSyncPaused()) return true;
   const payload = { id: DB_ROW_ID, data: nextState, updated_at: new Date().toISOString() };
   const res = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/app_state?on_conflict=id`,
@@ -144,12 +159,18 @@ async function writeRemoteState(nextState) {
       body: JSON.stringify(payload),
     }
   );
+  if (!res?.ok && res?.status >= 400 && res?.status < 500) {
+    pauseRemoteSync();
+  }
   return !!res?.ok;
 }
 
 async function save(s) {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     throw new Error("Supabase config missing");
+  }
+  if (isRemoteSyncPaused()) {
+    throw new Error("Remote sync is temporarily disabled. Refresh after the backend configuration is fixed.");
   }
   if (!navigator.onLine) {
     throw new Error("Device is offline");
