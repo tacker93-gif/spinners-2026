@@ -348,72 +348,72 @@ const PLAYER_BIOS = {
 
 
 
+const ROUND_PREDICTION_COPY = {
+  angus: {
+    r1: "Prediction: opening-day launch mode is active — take on the wider lines at St Andrews, feast on the par 5s, and let the driver set the tone.",
+    r2: "Prediction: moving day should reward your fearless swings at PK South — pick the smart moments to send it, especially when the hole finally widens.",
+    r3: "Prediction: final round freedom golf suits you at PK North — trust the bomb when it’s on and keep the short-game tidy enough to cash in late.",
+  },
+  nick: {
+    r1: "Prediction: a Tiger-approved opener is brewing — fairways first at St Andrews, center greens second, then quietly stack points before lunch chatter starts.",
+    r2: "Prediction: moving day is perfect for your percentage golf on PK South — stay disciplined through the awkward approaches and pounce when the green light appears.",
+    r3: "Prediction: final round patience could be lethal on PK North — accept the long targets, plot your way around, then let everyone else blink first.",
+  },
+  tom: {
+    r1: "Prediction: opening round boardroom energy — make decisive swings on the exposed tee shots at St Andrews and start monetising birdie looks early.",
+    r2: "Prediction: moving day should suit your conviction at PK South — commit to the number, take the smart aggressive line, and let the card compound.",
+    r3: "Prediction: final round has closer energy all over it — on PK North, keep the strategy clean for 14 holes and go cash-out mode on the way home.",
+  },
+  callum: {
+    r1: "Prediction: opening arguments are simple — respect the wind at St Andrews, play to the fat side, and let the putter deliver the verdict.",
+    r2: "Prediction: moving day could become your best brief yet at PK South if you stay disciplined off the tee until one brave swing changes the evidence.",
+    r3: "Prediction: final round is built for courtroom composure — PK North rewards patience, smart targets, and selective heroics only when invited.",
+  },
+  jkelly: {
+    r1: "Prediction: first-round chaos will absolutely knock, but St Andrews offers enough room for a genuine redemption arc if the opening tee ball behaves.",
+    r2: "Prediction: moving day might get gloriously weird at PK South — survive the awkward lies, embrace the momentum swings, and suddenly the card could catch fire.",
+    r3: "Prediction: final round feels made for Kelso theatre at PK North — just keep the disasters minor long enough for the hero stretch to arrive.",
+  },
+  jturner: {
+    r1: "Prediction: opening day needs a soft launch — market the fireworks later, start with a fairway-first campaign at St Andrews, then scale up once settled.",
+    r2: "Prediction: moving day is when the brand can really grow — PK South should reward one hot middle stretch if you stop overswinging the tight holes.",
+    r3: "Prediction: final round calls for a polished finish — PK North will hand you enough drama already, so deliver substance before the spin on the back nine.",
+  },
+  chris: {
+    r1: "Prediction: a classy opener is looming — stripe the irons at St Andrews, trust the flight in the wind, and remind everyone why your ceiling is obnoxiously high.",
+    r2: "Prediction: moving day should be your stage at PK South if the sledging stays background noise and the approach play stays front-page quality.",
+    r3: "Prediction: final round is all about nerve control — PK North suits your shot-making if you keep the head quiet and let the swing do the flexing.",
+  },
+  luke: {
+    r1: "Prediction: opening day has big-game guard energy — attack the scoring holes at St Andrews, own the moment, and make the group feel your pace early.",
+    r2: "Prediction: moving day is made for your clutch gene — PK South will reward one assertive line when the field starts steering it.",
+    r3: "Prediction: final round theatre suits you perfectly — PK North asks for nerve on the closing stretch, so embrace the pressure and keep hunting swings that matter.",
+  },
+  alex: {
+    r1: "Prediction: the annoyingly tidy opener is live — St Andrews should suit your crisp contact, low fuss decision-making, and ability to make hard golf look unfairly calm.",
+    r2: "Prediction: moving day could quietly become an Alex masterclass at PK South, with clean ball-striking doing the damage before anyone realises what’s happened.",
+    r3: "Prediction: final round points haul feels very real — PK North rewards boring elite golf, so keep doing that while others start forcing a miracle.",
+  },
+  lach: {
+    r1: "Prediction: opening day is the perfect time to let the coach-hours do the talking — shape it through the St Andrews breeze and save the swing lecture for post-round drinks.",
+    r2: "Prediction: moving day could reward your prep in a big way at PK South — trust the stock shot, manage the angles, and resist narrating every technical thought.",
+    r3: "Prediction: final round is about conviction over commentary — PK North wants committed targets and one shape at a time, not an on-course seminar.",
+  },
+  jason: {
+    r1: "Prediction: ugly-swing optics aside, the St Andrews opener has classic Jason sneak-attack potential if the ball keeps obeying your strange little system.",
+    r2: "Prediction: moving day could get scrappy in exactly your language — PK South offers enough awkward golf for you to keep nicking points and annoying better swingers.",
+    r3: "Prediction: final round only needs one thing from you — keep the move weird, survive PK North’s tougher stretches, and start stealing holes late.",
+  },
+  cam: {
+    r1: "Prediction: opening day should suit your smooth rhythm — St Andrews rewards steady ball-striking, low drama, and the sort of card that sneaks into contention quietly.",
+    r2: "Prediction: moving day has defender energy written all over it — PK South should reward your patience if the putter warms up before the banter does.",
+    r3: "Prediction: final round could become a proper title-defence grind — PK North asks for composure, tidy misses, and a lot of calm when others get jumpy.",
+  },
+};
+
 function getPlayerRoundPrediction(state, playerId, roundId) {
   const player = getP(playerId);
   const short = player?.short || "Legend";
-  const roundCopyByPlayer = {
-    angus: {
-      r1: "Prediction: opening-day bombs are on the menu, so aim the big stick at every generous fairway and feast on the par 5s.",
-      r2: "Prediction: moving day suits your chaos — one towering launch on the LD hole could turn this card into a highlight reel.",
-      r3: "Prediction: final round is pure freedom golf for you — swing hard, keep the mood loose, and let the rest of the field tense up.",
-    },
-    nick: {
-      r1: "Prediction: a Tiger-approved opener is coming — fairways, center greens, and a quietly excellent card by the turn.",
-      r2: "Prediction: moving day is built for percentage golf with one calculated ambush when the hole finally gives you a green light.",
-      r3: "Prediction: final round patience could be lethal — boring targets, tidy pars, then pounce when everyone else starts chasing.",
-    },
-    tom: {
-      r1: "Prediction: first-round boardroom energy — make decisive swings early and you could be monetising birdie chances all afternoon.",
-      r2: "Prediction: moving day should reward your conviction, especially if you start treating tucked flags like acquisition targets.",
-      r3: "Prediction: final round has CEO closer written all over it — commit to the smart line and cash out on the back nine.",
-    },
-    callum: {
-      r1: "Prediction: opening arguments are simple — play to the fat side, avoid the double, and let the putter present the closing statement.",
-      r2: "Prediction: moving day could become your best brief yet if you stay disciplined until one brave swing changes the evidence.",
-      r3: "Prediction: final round is for courtroom composure — no heroics unless invited, then bury the field with procedural pars.",
-    },
-    jkelly: {
-      r1: "Prediction: first-round chaos will absolutely knock, but if the opening tee ball behaves you’ve got a genuine redemption script brewing.",
-      r2: "Prediction: moving day might get gloriously weird for you — survive the messy holes and suddenly the card could catch fire.",
-      r3: "Prediction: final round feels made for all-or-nothing Kelso theatre, just with slightly fewer disasters before the hero moment.",
-    },
-    jturner: {
-      r1: "Prediction: opening day needs a soft launch — market the fireworks later and start with a fairway-first campaign.",
-      r2: "Prediction: moving day is when the brand can really scale — one hot stretch through the middle could have you selling a miracle round.",
-      r3: "Prediction: final round calls for a strong finish and even stronger spin — close with substance first, slogans second.",
-    },
-    chris: {
-      r1: "Prediction: a classy opener is looming — stripe a few early irons and the group will remember why everyone says you’re the purest striker here.",
-      r2: "Prediction: moving day should be your stage if the sledging stays background noise and the swing stays front-page news.",
-      r3: "Prediction: final round is all about nerve control — keep the head quiet, trust the talent, and this could look annoyingly easy.",
-    },
-    luke: {
-      r1: "Prediction: opening day has big-game guard energy — stack a couple of early circles and you’ll start demanding the ball on every key hole.",
-      r2: "Prediction: moving day is made for your clutch gene, especially if one aggressive line reminds everyone you came to headline the trip.",
-      r3: "Prediction: final round theatre suits you perfectly — embrace the pressure, call your shot internally, and let the moments find you.",
-    },
-    alex: {
-      r1: "Prediction: the annoyingly talented opener is live — minimal fuss, crisp contact, and another card that looks easier than it should.",
-      r2: "Prediction: moving day could quietly become an Alex masterclass, with clean ball-striking doing the damage before anyone notices.",
-      r3: "Prediction: final round points haul feels very real if you keep doing the boring elite stuff while others start forcing it.",
-    },
-    lach: {
-      r1: "Prediction: opening day is a perfect time to let the coach-hours do the talking and save the technical explanation for the drinks cart.",
-      r2: "Prediction: moving day could reward your prep in a big way — trust the stock shot and resist the urge to oversell every swing thought.",
-      r3: "Prediction: final round is about conviction over commentary — pick the shape, swing it, and let the scorecard close the deal.",
-    },
-    jason: {
-      r1: "Prediction: ugly-swing optics aside, the opener has classic Jason sneak-attack potential if the ball keeps obeying your strange little system.",
-      r2: "Prediction: moving day could get scrappy in exactly your language — keep nicking points and suddenly you’re ruining someone else’s plans.",
-      r3: "Prediction: final round only needs one thing from you: keep the swing weird, the card tidy, and the late-hole steals coming.",
-    },
-    cam: {
-      r1: "Prediction: opening day should suit your good-bloke rhythm — steady ball-striking, no drama, and a card that sneaks into contention.",
-      r2: "Prediction: moving day has defender energy written all over it, especially if the putter warms up before the chatter does.",
-      r3: "Prediction: final round could become a proper title-defence grind — stay patient, keep smiling, and make everyone earn every point.",
-    },
-  };
-
   const roundIndex = ROUNDS.findIndex(r => r.id === roundId);
   let priorForm = "Settle in early, avoid doubles, and this round can build quickly.";
   if (roundIndex > 0) {
@@ -425,16 +425,16 @@ function getPlayerRoundPrediction(state, playerId, roundId) {
       const dH = courseHcp(state.handicaps?.[playerId], prevCourse, getTeeKey(state, prevCourse.id));
       const prevPts = pStab(prevScores, prevCourse, dH);
       if (filled === 18) {
-        if (prevPts >= 36) priorForm = `You’re coming in hot off ${prevPts} pts yesterday — stay aggressive when the green light appears.`;
-        else if (prevPts >= 30) priorForm = `Solid base with ${prevPts} pts yesterday. Clean up a couple of errors and you’re right in it.`;
-        else priorForm = `${prevPts} pts yesterday means today is a bounce-back script — simplify targets and rebuild momentum.`;
+        if (prevPts >= 36) priorForm = `You’re coming in hot off ${prevPts} pts yesterday — stay aggressive when the genuine scoring window opens.`;
+        else if (prevPts >= 30) priorForm = `Solid base with ${prevPts} pts yesterday. Clean up a couple of misses and you’re right in the mix again.`;
+        else priorForm = `${prevPts} pts yesterday means today is a bounce-back script — simplify targets, bank the easy ones, and rebuild momentum.`;
       } else {
-        priorForm = `Previous round showed flashes over ${filled} holes. Fast start today and you can turn that into a full-card scorer.`;
+        priorForm = `Previous round showed flashes over ${filled} holes. Start sharply today and you can turn that into a full-card scorer.`;
       }
     }
   }
 
-  const roundSpecific = roundCopyByPlayer[playerId]?.[roundId] || "Prediction: steady tempo and smart misses should travel well today.";
+  const roundSpecific = ROUND_PREDICTION_COPY[playerId]?.[roundId] || "Prediction: steady tempo and smart misses should travel well today.";
   return `${short}, ${roundSpecific} ${priorForm}`;
 }
 const PLAYER_BIO_IMAGES = {
@@ -495,44 +495,44 @@ const HOLE_DESC = {
     "A beautiful finishing par 4 that invites one final aggressive tee shot, often downwind. Right side can add roll and leave wedge in, but avoiding the short-right bunker is essential to set up a birdie chance.",
   ],
   pk_south: [
-    "A demanding opening par 4 where the creek influences both the tee shot and the approach. Take enough club to find the fairway, then favour the safer line that leaves a full look at the green rather than flirting with the water early.",
-    "A dogleg par 4 where driver can bite off more of the corner but brings bunkers into play. The percentage play is a little less club to the right side, leaving a cleaner angle and a choice between a running or aerial approach over the front mound.",
-    "A long par 3 that asks for a committed hybrid or long iron. The best miss is a controlled running shot using the contours, especially with a gentle right-to-left shape feeding toward the middle.",
-    "A strong par 4 where the left-side bunkers foreshorten the approach and make distance control crucial. Pick a line that leaves a comfortable number, then stay alert to the front-right contour when the pin is cut there.",
-    "A short par 5 defined by the diagonal creek at driving distance. Take on the narrow gap and you can set up a go at the green in two; lay back and accept that it becomes a true three-shot hole.",
-    "An inviting tee shot gives way to a highly strategic green. Front pins suit a high, soft approach, while back pins are better attacked with a lower shot feeding through the valley.",
-    "This short par 4 is all about choosing how much to gamble from the tee. The safe play is a lay-up near the dogleg corner, while the aggressive line chases a better angle and possible birdie chance if conditions suit.",
-    "The toughest fairway to find on the South, with the hogsback rejecting anything slightly offline. The smart play is short of the rise on the right, setting up a controlled uphill pitch after a solid second.",
-    "A demanding par 3 where shape and trajectory matter. A high fade suits the hole best, but the green is smaller in practice than it looks, so center-green is a strong result.",
-    "This par 4 plays longer than the card suggests because of the climbing terrain. Challenge the right-side bunkers only if you want the shorter line; otherwise plan for an extra club and a soft landing into the tilted green.",
-    "A short par 4 where the ideal tee shot hugs the bunker on the rise to leave only a pitch. Anything too far left brings the big greenside bunker and a green running away from you into the equation.",
-    "A classic strategic short par 4 where the best angle depends entirely on the pin. Play right when the flag is left, and hug or carry the left waste when the flag is right.",
-    "A sweeping par 4 that rewards shaping both shots to match the hole. A left-to-right tee shot sets up best, then a right-to-left approach works with the green contours.",
-    "A dramatic par 3 over a valley to an elevated green with bold bunkering. The percentage play is out to the right using the slopes, but left-side pins demand a committed shot carrying all the trouble.",
-    "A long par 4-and-a-half where avoiding the fairway bunkers is only the first job. If you play out to the right, be ready for a more exacting second over the bunkers short and right of the green.",
-    "A true three-shot par 5 for almost everyone. Plot it as a positional hole, because very few will have a realistic chance of getting home in two.",
-    "A short hole that looks like a birdie chance but punishes indecision. In the wind especially, commit to your number and take the middle of the green if the pin is awkward.",
-    "A strong finishing par 4 played downhill to the fairway, with the right-side sand waste guarding the preferred line. Find position off the tee and expect a demanding long-club approach, especially into the usual breeze.",
+    "An exacting opening par 4 where the creek shapes both shots. Prioritise a tee ball that finds fairway first, then play to the safe side of the green rather than flirting with water.",
+    "A dogleg par 4 that rewards position over power. A controlled tee shot to the right side opens the best angle and leaves a simpler approach over the front mound.",
+    "A long par 3 that demands full commitment to the number. Favor a flight that lands pin-high and use the ground softly rather than forcing a hero shot.",
+    "A strong par 4 where leaving the right yardage matters more than chasing extra metres. Set up a comfortable approach and stay aware of the green’s front-right contour.",
+    "A short par 5 defined by the diagonal creek. Commit to either taking on the narrow driving line for a chance in two or laying back and treating it as a clear three-shot hole.",
+    "A deceptively strategic par 4 because the green asks for the right trajectory. Front flags suit height and spin, while back flags reward a lower shot feeding through the valley.",
+    "A short par 4 built on tee-shot choice. Lay back for position near the corner or take the aggressive line only if you want to chase a wedge and a birdie chance.",
+    "The South’s toughest fairway to find, with the hogsback rejecting sloppy drives. The percentage play is short-right of the rise, leaving an uphill approach you can control.",
+    "A testing par 3 where trajectory and start line do the work. Center-green is a very good result here, especially if the wind is moving.",
+    "This par 4 plays longer than the card because of the climb. Take enough club into the approach and plan for a soft landing into the tilted green.",
+    "A short par 4 where hugging the rise-side bunker from the tee leaves the easiest pitch. Missing left brings awkward sand and a green that runs away.",
+    "A strategic short par 4 where pin position should dictate your line. Play for the correct angle first, then attack with the approach only after the tee shot earns it.",
+    "A sweeping par 4 that rewards shape and commitment. Match the tee shot to the fairway, then work the approach with the green’s contours instead of fighting them.",
+    "A dramatic par 3 over the valley to an elevated green. The percentage miss is right, while left pins demand total commitment to carry all the trouble.",
+    "A long par 4 where bunker avoidance is only step one. Favour the side that gives you a clearer second and accept that this is a patience hole.",
+    "A true three-shot par 5 for nearly everyone. Plot it as a positional hole, keep the ball in play, and trust wedge distance more than brute force.",
+    "A short par 3 that punishes indecision, especially in the wind. Commit to the yardage and take the middle when the pin is tucked.",
+    "A demanding finishing par 4 played downhill from the tee. Find position first, then expect a long-club approach that rewards control more than aggression.",
   ],
   pk_north: [
-    "A solid opening par 4 with room off the tee but bunkers squeezing the landing zone. Driver offers a short approach if you commit, while a safer long iron or hybrid leaves a tougher shot into the elevated green.",
-    "This par 3 is all about front-edge yardage and trajectory. Finish even a touch short and the ball can roll well back down the slope, so favor a committed carry that finishes pin-high rather than flirting with the false front.",
-    "A risk-reward par 4 where the aggressive drive over the left side opens the hole but brings big trouble into play. Laying back keeps the ball in the wide part of the fairway, though the approach becomes partially blind.",
-    "Thread the tee shot between the left waste and right bunkers, then use the right side on approach whenever you can. The green accepts a running shot from that angle, with only left pins asking for a more direct attack.",
-    "A reachable par 5 for the longer hitters if they take on the drive through the valley. For everyone else, hugging the left side sets up the simplest lay-up and avoids the awkward uphill pitch from the bowl on the right.",
-    "A drivable uphill par 4 with multiple tee-shot options depending on appetite for risk. Choose your line based on the day’s pin, because every option leaves a different angle and level of difficulty for the approach.",
-    "A strong par 3 where the safest target is the wider right side of the green. Taking on a left pin is bold, but with deep bunkers and trouble long, simply finding the putting surface is an excellent outcome.",
-    "This short par 4 rewards those willing to flirt with the huge hazard on the left for a better angle. The conservative play is right, accepting a trickier pitch, while stronger players may try to carry the trouble and set up birdie.",
-    "A long par 4 that starts the toughest stretch on the North. Favor the right-side sand line from the tee to open the best angle, then expect to need two very solid shots to make the green.",
-    "One of the narrowest tee shots on the course and a demanding long par 4. On the approach, treat it like a running-shot green and be especially precise to front pins, which require landing well short on the right spot.",
-    "A strong par 4 where left-side waste and right bunkers squeeze club selection off the tee. Once in position, the smart approach is a running shot landing short and feeding onto the green.",
-    "The hogsback fairway defines this hole. Lay up short for safety and a longer second, or challenge the domed section with driver or 3-wood to gain a shorter approach at the cost of a much bigger miss.",
-    "The more club you hit here, the more danger you bring in. For most players, a long iron or hybrid is ideal, preferably from the left side, before a delicate pitch into a green protected by deep bunkers and strong tilt.",
-    "A short hole surrounded by sand and heath where precision matters more than power. Pick the correct yardage, aim for the fat side, and avoid short-siding yourself around the bunkers.",
-    "A long par 4 with a largely blind tee shot over the ridge and a more inviting second than it first appears. The best line is over the dogleg bunker, especially if the pin is tucked on the right.",
-    "This par 3 favors a left-to-right shot shape. The safe line is just left of center using the mound to feed the ball inward, while the far-right pin demands a committed shot directly over the bunker.",
-    "The longest hole on the property and a genuine three-shot par 5. Taking on the bunkers from the tee gives a shorter, clearer route, but wherever you are, be careful not to feed the approach into the hollow fronting the green.",
-    "A strategic finishing par 4 where long hitters may challenge the corner bunker for a wedge in. The safer play is a shorter club feeding toward the corner, leaving a comfortable short iron with a strong angle into the amphitheater green.",
+    "A solid opening par 4 with enough room to swing but bunkers squeezing the ideal landing area. Decide early whether you want the short approach from driver or the safer number from less club.",
+    "This par 3 is all about carrying the front edge. Take enough club to finish pin-high and avoid getting dragged back by the false front.",
+    "A risk-reward hole where the aggressive line over the left side opens everything up. The safer play keeps the ball in the wider fairway but leaves a more awkward look in.",
+    "A positional par 4 that rewards a tee shot threaded between the hazards. From the fairway, the right side gives the best chance to run the ball onto the green.",
+    "A reachable par 5 for some, but only after a committed drive through the valley. Everyone else should favour the simpler lay-up route and avoid leaving an awkward uphill pitch.",
+    "A drivable uphill par 4 with multiple valid strategies. Choose the line that matches the day’s pin and your appetite for a short but tricky second shot.",
+    "A strong par 3 where the sensible target is the wider right portion of the green. Taking on a left pin is optional; simply finding the surface is a win.",
+    "A short par 4 that rewards bravery if you flirt with the left-side trouble. The bailout right is fine, but expect a harder pitch if you choose safety.",
+    "A long par 4 that starts a stern stretch. Favour the right-side sand line from the tee to open the best angle, then accept that two quality shots are required.",
+    "One of the narrowest and toughest driving holes on the course. On approach, think landing area and release rather than firing straight at the flag.",
+    "A strong par 4 with hazards squeezing decision-making off the tee. Once in position, a controlled running approach is usually the smartest play.",
+    "The hogsback fairway is the entire puzzle here. Lay up short for safety or challenge the crowned section only if you are happy to accept the bigger miss.",
+    "A hole where restraint matters. For most players, a long iron or hybrid leaves the best scoring chance before a delicate pitch into a strongly tilted green.",
+    "A short par 3 surrounded by sand and heath. Precision beats aggression, so take the fat side and avoid short-siding yourself.",
+    "A long par 4 with a largely blind tee shot over the ridge. Commit to the line, then trust that the second shot is more manageable than it first appears.",
+    "This par 3 favors a left-to-right shape. Start it just left of center if possible and let the contours help rather than taking on the bunker directly.",
+    "The longest hole on the property and a genuine three-shot par 5. Position each shot carefully and make sure the approach does not feed into the hollow short of the green.",
+    "A strategic finishing par 4 where bold players can challenge the corner bunker for a wedge in. The safer route still offers a good angle if you place the tee shot properly.",
   ],
 };
 
@@ -1618,7 +1618,7 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:6}}>
           {!showA?(<button onClick={()=>setShowA(true)} aria-label="Open admin login" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"none",border:"1px solid #d1d5db",borderRadius:10,padding:"10px 16px",color:"#64748b",fontSize:13,fontWeight:700,cursor:"pointer",fontFamily:"'DM Sans',sans-serif",minHeight:44}}>🔒 Admin</button>):(
             <div style={{display:"flex",gap:8,gridColumn:"span 2"}}>
-              <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);setUnlockReady(false);}} placeholder="Admin code" style={{...S.input,flex:1,marginBottom:0}}/>
+              <input value={code} onChange={e=>{setCode(e.target.value);setErr(false);setUnlockReady(false);}} placeholder={lockedPlayerId?"Password required to unlock":"Admin code"} style={{...S.input,flex:1,marginBottom:0}}/>
               <button onClick={()=>{if(verifyAdminCode())onAdmin(code);}} style={{padding:"10px 16px",borderRadius:10,border:"none",background:"#2d6a4f",color:"#fff",fontWeight:700,cursor:"pointer",fontSize:13,minHeight:44}}>Go</button>
             </div>
           )}
@@ -1646,8 +1646,8 @@ function PlayerSelect({state,lockedPlayerId,onSelect,onUnlockSelection,onSpectat
           </button>
         </div>
         {lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-8,textAlign:"center"}}>Locked player: {getP(lockedPlayerId)?.name || "Unknown"}</p>}
-        {lockedPlayerId&&showA&&<button onClick={()=>{if(verifyAdminCode())onUnlockSelection();}} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:unlockReady?"#fff":"#fff5f5",color:"#dc2626",fontSize:12,fontWeight:600,cursor:"pointer",fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
-        {err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>{ADMIN_CODE ? "Incorrect code" : "Admin code not configured"}</p>}
+        {lockedPlayerId&&showA&&<button onClick={()=>{if(code.trim()==="admin2026"){setErr(false);setUnlockReady(true);onUnlockSelection();}else{setUnlockReady(false);setErr(true);}}} disabled={!code.trim()} style={{display:"block",margin:"0 auto 8px",padding:"8px 12px",borderRadius:8,border:"1px solid #fca5a5",background:unlockReady?"#fff":"#fff5f5",color:"#dc2626",fontSize:12,fontWeight:600,cursor:!code.trim()?"not-allowed":"pointer",opacity:!code.trim()?0.55:1,fontFamily:"'DM Sans',sans-serif"}}>🔓 Unlock player selection</button>}
+        {showA&&lockedPlayerId&&<p style={{fontSize:11,color:"#94a3b8",marginTop:-2,marginBottom:8,textAlign:"center"}}>Enter <strong>admin2026</strong> to unlock this device from its current player.</p>}{err&&<p style={{color:"#dc2626",fontSize:12,marginTop:4,textAlign:"center"}}>{lockedPlayerId ? "Unlock password must be admin2026" : (ADMIN_CODE ? "Incorrect code" : "Admin code not configured")}</p>}
       </div>
       <SponsorFooter />
     </div>
@@ -2705,6 +2705,8 @@ function TripSchedule({onBack}){
       <h2 style={S.sectTitle}>Trip Itinerary</h2>
       <p style={{fontSize:12,color:"#94a3b8",marginBottom:16}}>Spinners Cup 2026 · Mornington Peninsula</p>
 
+      <div style={{padding:"12px 14px",background:"#fff7ed",borderRadius:10,border:"1px solid #fed7aa",marginBottom:16}}><div style={{fontSize:11,fontWeight:700,color:"#9a3412",marginBottom:4}}>🏠 AirBnB Address</div><div style={{fontSize:13,color:"#7c2d12",lineHeight:1.5}}>406 Dundas St, St Andrews Beach</div></div>
+
       {days.map((d, di) => (
         <div key={di} style={{marginBottom:16}}>
           <div style={{...S.card, border:"1px solid #d4e5d4", background:"#f8faf8", padding:"14px 14px 10px"}}>
@@ -3037,7 +3039,7 @@ function PlayersPage({state,upd,isAdmin,live}){
       {isAdmin && (
         <div style={{padding:"14px 16px",background:"#eef6ff",borderRadius:12,border:"1px solid #bfdbfe",marginBottom:16}}>
           <div style={{fontSize:14,fontWeight:700,color:"#1e3a8a",marginBottom:8}}>📝 Round Banter Summary Launch</div>
-          <div style={{fontSize:11,color:"#1e40af",marginBottom:10}}>Draft the round banter summary yourself, copy the full round scoresheet to use in an external LLM if you want, then launch the finished summary to players.</div>
+          <div style={{fontSize:11,color:"#1e40af",marginBottom:10}}>Write the round banter summary yourself, copy the full round scoresheet if you want to use another tool, then launch the finished summary to players.</div>
           {ROUNDS.map(round => {
             const done = isRoundFullySubmitted(state, round.id);
             const released = !!state.dailySummaries?.[round.id];
@@ -3087,12 +3089,12 @@ function PlayersPage({state,upd,isAdmin,live}){
                 <textarea
                   value={draft}
                   onChange={e=>upd(s=>{if(!s.dailySummaryDrafts)s.dailySummaryDrafts={}; s.dailySummaryDrafts[round.id]=e.target.value;})}
-                  placeholder={`Draft Round ${round.num} banter summary here. Paste in what your external LLM gives you, or write it manually.`}
+                  placeholder={`Write Round ${round.num} banter summary here, then launch it to players when ready.`}
                   style={{width:"100%",minHeight:132,padding:"10px 12px",borderRadius:10,border:"1px solid #93c5fd",fontSize:13,lineHeight:1.55,color:"#1e293b",boxSizing:"border-box",resize:"vertical",background:"#fff"}}
                 />
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10,marginTop:8,flexWrap:"wrap"}}>
                   <div style={{fontSize:10,color:"#475569"}}>{draft.trim() ? `${draft.trim().length} chars drafted` : "No draft yet."}</div>
-                  <div style={{fontSize:10,color:status.includes("failed") ? "#b91c1c" : "#1d4ed8"}}>{status || "Use Copy Scoresheet to grab the round data for your external prompt."}</div>
+                  <div style={{fontSize:10,color:status.includes("failed") ? "#b91c1c" : "#1d4ed8"}}>{status || "Use Copy Scoresheet to grab the full round data before launching your manual summary."}</div>
                 </div>
               </div>
             );
