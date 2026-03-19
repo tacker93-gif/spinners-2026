@@ -60,6 +60,7 @@ function resolveConfigValue({ runtimeKeys = [], localStorageKeys = [], queryKeys
 const SUPABASE_URL = resolveConfigValue({ runtimeKeys: ["supabaseUrl"], localStorageKeys: ["spinners-supabase-url"], queryKeys: ["supabaseUrl"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseUrl });
 const SUPABASE_KEY = resolveConfigValue({ runtimeKeys: ["supabaseKey"], localStorageKeys: ["spinners-supabase-key"], queryKeys: ["supabaseKey"], defaultValue: DEFAULT_REMOTE_CONFIG.supabaseKey });
 const DB_ROW_ID = resolveConfigValue({ runtimeKeys: ["dbRowId"], localStorageKeys: ["spinners-db-row-id"], queryKeys: ["dbRowId"] }) || "spinners-cup-2026";
+const STATE_CACHE_KEY = `${DB_ROW_ID}-state-cache`;
 
 const supabaseHeaders = {
   "apikey": SUPABASE_KEY,
@@ -77,8 +78,27 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 5000) {
   }
 }
 
+function readCachedState() {
+  try {
+    return normalizeState(JSON.parse(window.localStorage.getItem(STATE_CACHE_KEY) || "null"));
+  } catch {
+    return null;
+  }
+}
+
+function cacheStateSnapshot(nextState) {
+  if (!nextState) return;
+  try {
+    window.localStorage.setItem(STATE_CACHE_KEY, JSON.stringify(nextState));
+  } catch {}
+}
+
 async function load() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error("Supabase config missing");
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    const cached = readCachedState();
+    if (cached) return cached;
+    return DC(DEFAULT_STATE);
+  }
   const cacheBust = Date.now();
   const res = await fetchWithTimeout(
     `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
@@ -97,7 +117,9 @@ async function load() {
   }
 
   const rows = await res.json();
-  return normalizeState(rows?.[0]?.data) || DC(DEFAULT_STATE);
+  const nextState = normalizeState(rows?.[0]?.data) || DC(DEFAULT_STATE);
+  cacheStateSnapshot(nextState);
+  return nextState;
 }
 
 function createRealtimeClient() {
@@ -1290,15 +1312,18 @@ function App() {
     try {
       const next = await load();
       if (next && (!shouldApply || shouldApply())) {
+        cacheStateSnapshot(next);
         setState(DC(next));
         setSyncError("");
       }
       return next;
     } catch (error) {
+      const fallbackState = readCachedState() || DC(DEFAULT_STATE);
       if (!shouldApply || shouldApply()) {
+        setState(prev => prev || fallbackState);
         setSyncError(error?.message || "Unable to sync with Supabase.");
       }
-      return null;
+      return fallbackState;
     } finally {
       refreshInFlightRef.current = false;
     }
@@ -1327,6 +1352,7 @@ function App() {
         payload => {
           const remoteState = normalizeState(payload.new?.data);
           if (remoteState) {
+            cacheStateSnapshot(remoteState);
             setState(DC(remoteState));
             setSyncError("");
           } else {
@@ -1395,6 +1421,7 @@ function App() {
       fn(base);
       const next = base;
       const saveVersion = ++saveVersionRef.current;
+      cacheStateSnapshot(next);
       setIsSaving(true);
       setSyncError("");
       Promise.resolve(save(next))
