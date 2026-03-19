@@ -99,9 +99,8 @@ async function load() {
     if (cached) return cached;
     return DC(DEFAULT_STATE);
   }
-  const cacheBust = Date.now();
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data&_=${cacheBust}`,
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}&select=data`,
     {
       cache: "no-store",
       headers: {
@@ -1417,7 +1416,6 @@ function App() {
   const upd=useCallback(fn=>{
     setState(prev=>{
       const base = DC(prev || DEFAULT_STATE);
-      const previous = DC(base);
       fn(base);
       const next = base;
       const saveVersion = ++saveVersionRef.current;
@@ -1434,9 +1432,11 @@ function App() {
         .catch(error => {
           if (saveVersion !== saveVersionRef.current) return;
           setIsSaving(false);
-          setSyncError(error?.message || "Unable to save to Supabase.");
-          setState(previous);
-          refreshState({ force: true });
+          const message = navigator.onLine
+            ? (error?.message || "Unable to save to Supabase.")
+            : "Offline. Changes saved locally and will sync when reconnected.";
+          setSyncError(message);
+          cacheStateSnapshot(next);
         });
       return next;
     });
