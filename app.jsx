@@ -101,27 +101,17 @@ function getPendingSave() {
 async function writeRemoteState(nextState) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return true;
   const res = await fetchWithTimeout(
-    `${SUPABASE_URL}/rest/v1/app_state`,
+    `${SUPABASE_URL}/rest/v1/app_state?id=eq.${encodeURIComponent(DB_ROW_ID)}`,
     {
-      method: "POST",
-      headers: {
-        ...supabaseHeaders,
-        "Prefer": "resolution=merge-duplicates,return=representation",
-      },
-      body: JSON.stringify([{
-        id: DB_ROW_ID,
+      method: "PATCH",
+      headers: supabaseHeaders,
+      body: JSON.stringify({
         data: nextState,
         updated_at: new Date().toISOString(),
-      }]),
+      }),
     }
   );
-  if (!res?.ok) return false;
-  try {
-    const rows = await res.json();
-    return !!rows?.some(row => row?.id === DB_ROW_ID);
-  } catch {
-    return false;
-  }
+  return !!res?.ok;
 }
 
 async function flushQueuedSave() {
