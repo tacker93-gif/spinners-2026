@@ -6414,6 +6414,32 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
   }
   let rankings = [];
   if (catId === "spinners") {
+    const openingRound = ROUNDS[0];
+    if (!isRoundRevealed(state, openingRound.id, live, isAdmin)) {
+      return (
+        <div>
+          <button onClick={onBack} style={S.backBtn}>
+            ← Back
+          </button>
+          <h2 style={S.sectTitle}>Leaderboard locked</h2>
+          <div
+            style={{
+              ...S.card,
+              borderStyle: "dashed",
+              borderColor: "#cbd5e1",
+              background: "#f8fafc",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+              The Spinners Cup leaderboard is hidden
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+              It will unlock once admin opens scoring for Round 1.
+            </div>
+          </div>
+        </div>
+      );
+    }
     const revealedRounds = ROUNDS.filter((r) =>
       isRoundRevealed(state, r.id, live, isAdmin),
     );
@@ -6569,6 +6595,11 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       <h2 style={S.sectTitle}>{titles[catId]}</h2>
       {rankings.map((r, i) => {
         const canOpen = !!(r.roundId && r.matchId && onOpenMatch);
+        const teamBorderColor = live
+          ? r.team === "blue"
+            ? "#D4A017"
+            : "#DC2626"
+          : "#cbd5e1";
         return (
           <button
             key={r.id}
@@ -6577,7 +6608,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
             }}
             style={{
               ...S.card,
-              borderLeft: `3px solid ${r.team === "blue" ? "#D4A017" : "#DC2626"}`,
+              borderLeft: `3px solid ${teamBorderColor}`,
               background: i === 0 ? "#f0fdf4" : "#fff",
               width: "100%",
               textAlign: "left",
