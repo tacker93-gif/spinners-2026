@@ -173,6 +173,24 @@ function markLocalSledgeReads(viewerId, itemIds) {
   return next;
 }
 
+function clearResettableLocalState() {
+  try {
+    const keysToRemove = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i);
+      if (!key) continue;
+      if (
+        key === ROUND_KICKOFF_SEEN_KEY ||
+        key === STATE_CACHE_KEY ||
+        key.startsWith(`${SLEDGE_READS_STORAGE_KEY}:`)
+      ) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach((key) => window.localStorage.removeItem(key));
+  } catch {}
+}
+
 async function load() {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
     const cached = readCachedState();
@@ -8474,8 +8492,8 @@ function PlayersPage({ state, upd, isAdmin, live }) {
             🧨 Reset App Data
           </div>
           <div style={{ fontSize: 11, color: "#9f1239", marginBottom: 10 }}>
-            Clears all scores, claims, handicaps, submissions, chulligans, tees
-            and visibility settings.
+            Clears all scores, claims, handicaps, submissions, chulligans, tees,
+            visibility settings, sledge feed activity, and winner/banner history.
           </div>
           {!confirmReset ? (
             <button
@@ -8497,6 +8515,7 @@ function PlayersPage({ state, upd, isAdmin, live }) {
             <div style={{ display: "flex", gap: 8 }}>
               <button
                 onClick={() => {
+                  clearResettableLocalState();
                   upd((s) => Object.assign(s, DC(DEFAULT_STATE)));
                   setConfirmReset(false);
                 }}
