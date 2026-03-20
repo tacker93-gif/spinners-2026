@@ -2058,7 +2058,6 @@ function pushSledgeFeed(
   { roundId, playerId, playerIds, hole, catalystKey, message },
 ) {
   if (!state?.eventLive || !message) return false;
-  if (!state.sledgeMeta) state.sledgeMeta = {};
   if (!state.sledgeFeed) state.sledgeFeed = [];
 
   const now = Date.now();
@@ -2075,7 +2074,7 @@ function pushSledgeFeed(
   stampSledgePlayers(state, roundId, impactedPlayers, now);
   state.sledgeFeed = pruneExpiredSledges(state.sledgeFeed, now);
   state.sledgeFeed.unshift({
-    id: `${now}_${metaKey}`,
+    id: `${now}_${catalystKey}_${Math.random().toString(36).slice(2, 8)}`,
     roundId,
     playerId: playerId || null,
     playerIds: impactedPlayers,
