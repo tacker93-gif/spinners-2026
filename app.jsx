@@ -2228,6 +2228,39 @@ function isRoundFullySubmitted(state, roundId) {
   return PLAYERS.every((p) => !!state?.submitted?.[roundId]?.[p.id]);
 }
 
+function canEnterHoleScores(state, roundId, playerId, holeIdx) {
+  if (holeIdx <= 0) return true;
+  const partnerId = getPartner(playerId, roundId);
+  const prevPlayerScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
+  const prevPartnerScore = partnerId
+    ? state.scores?.[roundId]?.[partnerId]?.[holeIdx - 1] || 0
+    : 1;
+  return holeFilled(prevPlayerScore) && holeFilled(prevPartnerScore);
+}
+
+function submitManualSledge(state, { authorId, targetId, message, roundId }) {
+  if (!state?.eventLive || !authorId || !targetId || !message?.trim()) return false;
+  if (!state.sledgeFeed) state.sledgeFeed = [];
+  const author = getP(authorId);
+  const target = getP(targetId);
+  const now = Date.now();
+  state.sledgeFeed = pruneExpiredSledges(state.sledgeFeed, now);
+  state.sledgeFeed.unshift({
+    id: `${now}_manual_${Math.random().toString(36).slice(2, 8)}`,
+    roundId: roundId || null,
+    playerId: targetId,
+    playerIds: [authorId, targetId],
+    hole: null,
+    catalystKey: `manual:${authorId}:${targetId}`,
+    message: `✍️ ${author?.short || "Someone"} to ${target?.short || "someone"}: ${message.trim()}`,
+    at: new Date(now).toISOString(),
+    authorId,
+    targetId,
+    manual: true,
+  });
+  return true;
+}
+
 function getRoundLeaderboard(state, round) {
   const course = getCourse(round.courseId);
   return PLAYERS.map((p) => {
@@ -2344,10 +2377,13 @@ function formatRoundSummaryExport(state, roundId) {
   const ldId = state.ldWinners?.[`${round.id}_ld`];
   const trendStats = getRoundTrendStats(state, round);
   const course = getCourse(round.courseId);
+  const teeKey = getTeeKey(state, course.id);
+  const nextRound = ROUNDS.find((candidate) => candidate.num === round.num + 1);
 
   const sections = [
     `Round ${round.num} - ${round.courseName}`,
     `${round.day}`,
+    `Course setup: Par ${course.par} | ${getTeeLabel(course, teeKey)} tees | Slope ${getSlope(course, teeKey)} | Course rating ${getRating(course, teeKey)}`,
     "",
     "ROUND LEADERBOARD",
     ...(leaderboard.length
@@ -2367,6 +2403,26 @@ function formatRoundSummaryExport(state, roundId) {
     `Most wipes (P): ${trendStats.mostWipes?.player?.name || "TBC"} (${trendStats.mostWipes?.wipes ?? 0})`,
     `Worst bogey run: ${trendStats.worstBogeyRun?.player?.name || "TBC"} (${trendStats.worstBogeyRun?.worstBogeyRun ?? 0} holes)`,
     `Worst 3-hole stretch: ${trendStats.worstStretch?.player?.name || "TBC"} (+${trendStats.worstStretch?.worstStretch?.total ?? 0} net over holes ${trendStats.worstStretch?.worstStretch?.startHole ?? "?"}-${trendStats.worstStretch?.worstStretch?.endHole ?? "?"})`,
+    "",
+    "NEXT ROUND DETAILS",
+    ...(nextRound
+      ? [
+          `Round ${nextRound.num} - ${nextRound.courseName}`,
+          `${nextRound.day}`,
+          `Tee times: ${nextRound.teeTimes.join(", ")}`,
+          ...nextRound.matches.map(
+            (match, matchIndex) =>
+              `Match ${matchIndex + 1}: ${match.blue.map((id) => getP(id)?.name || id).join(" / ")} vs ${match.grey.map((id) => getP(id)?.name || id).join(" / ")}`,
+          ),
+        ]
+      : ["No following round scheduled. This is the final round."]),
+    "",
+    "PLAYER HANDICAPS & BIOS",
+    ...PLAYERS.map((player) => {
+      const handicap = state.handicaps?.[player.id];
+      const dailyHcp = courseHcp(handicap, course, teeKey);
+      return `${player.name} | Team ${getTeamName(state, player.team)} | GA ${handicap ?? "-"} | Daily ${dailyHcp ?? "-"} | Bio: ${PLAYER_BIOS[player.id] || "No bio on file."}`;
+    }),
     "",
     "FULL SCORESHEETS",
   ];
@@ -2396,7 +2452,7 @@ function formatRoundSummaryExport(state, roundId) {
         0,
       );
       sections.push(
-        `${player?.name || playerId} | Total ${totalPoints} pts | ${holeParts.join(", ")}`,
+        `${player?.name || playerId} | GA ${state.handicaps?.[playerId] ?? "-"} | Daily ${dailyHcp ?? "-"} | Total ${totalPoints} pts | ${holeParts.join(", ")}`,
       );
     });
     sections.push("");
@@ -2760,7 +2816,7 @@ function App() {
           />
         )}
         {tab === "sledge" && !sub && (
-          <SledgeFeedPage state={state} cur={cur} live={live} />
+          <SledgeFeedPage state={state} upd={upd} cur={cur} live={live} />
         )}
         {tab === "leaders" && !sub && (
           <LeaderList onSelect={(id) => setSub({ t: "lb", id })} />
@@ -4421,16 +4477,28 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
   );
 }
 
-function SledgeFeedPage({ state, cur, live }) {
+function SledgeFeedPage({ state, upd, cur, live }) {
   const activeViewer =
     cur && cur !== "admin" && cur !== "spectator" ? cur : null;
   const [localSledgeReads, setLocalSledgeReads] = useState(() =>
     readLocalSledgeReads(activeViewer),
   );
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualAuthorId, setManualAuthorId] = useState(activeViewer || "");
+  const [manualTargetId, setManualTargetId] = useState(
+    PLAYERS.find((player) => player.id !== (activeViewer || ""))?.id || "",
+  );
+  const [manualRoundId, setManualRoundId] = useState(ROUNDS[0]?.id || "");
+  const [manualMessage, setManualMessage] = useState("");
+  const [manualStatus, setManualStatus] = useState("");
 
   useEffect(() => {
     setLocalSledgeReads(readLocalSledgeReads(activeViewer));
   }, [activeViewer, state?.sledgeFeed?.length]);
+
+  useEffect(() => {
+    if (activeViewer) setManualAuthorId(activeViewer);
+  }, [activeViewer]);
 
   useEffect(() => {
     if (!activeViewer) return undefined;
@@ -4454,9 +4522,54 @@ function SledgeFeedPage({ state, cur, live }) {
     if (nextReads) setLocalSledgeReads(nextReads);
   }, [activeViewer, unreadItems]);
 
+  const manualAuthorOptions = PLAYERS;
+  const manualTargetOptions = PLAYERS.filter(
+    (player) => player.id !== manualAuthorId,
+  );
+
+  useEffect(() => {
+    if (!manualTargetOptions.find((player) => player.id === manualTargetId)) {
+      setManualTargetId(manualTargetOptions[0]?.id || "");
+    }
+  }, [manualTargetId, manualTargetOptions]);
+
   return (
     <div>
-      <h2 style={S.sectTitle}>Sledge Feed</h2>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <h2 style={S.sectTitle}>Sledge Feed</h2>
+        {live && upd && (
+          <button
+            onClick={() => {
+              setManualStatus("");
+              setShowManualModal(true);
+            }}
+            style={{
+              width: 34,
+              height: 34,
+              borderRadius: 17,
+              border: "none",
+              background: "#ea580c",
+              color: "#fff",
+              fontSize: 22,
+              lineHeight: 1,
+              fontWeight: 700,
+              cursor: "pointer",
+              flexShrink: 0,
+            }}
+            title="Add manual sledge"
+            aria-label="Add manual sledge"
+          >
+            +
+          </button>
+        )}
+      </div>
       <div
         style={{
           ...S.card,
@@ -4632,6 +4745,263 @@ function SledgeFeedPage({ state, cur, live }) {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {showManualModal && live && upd && (
+        <div
+          onClick={() => setShowManualModal(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.65)",
+            zIndex: 280,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 16,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "min(520px,100%)",
+              background: "#fff",
+              borderRadius: 16,
+              border: "1px solid #fed7aa",
+              padding: 18,
+              boxShadow: "0 20px 40px rgba(0,0,0,.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: 12,
+              }}
+            >
+              <div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    fontWeight: 800,
+                    color: "#c2410c",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.8,
+                  }}
+                >
+                  Manual Sledge
+                </div>
+                <div
+                  style={{
+                    fontSize: 20,
+                    fontWeight: 800,
+                    color: "#7c2d12",
+                    fontFamily: "'Playfair Display',serif",
+                  }}
+                >
+                  Fire one straight into the feed
+                </div>
+              </div>
+              <button
+                onClick={() => setShowManualModal(false)}
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: 15,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#475569",
+                  cursor: "pointer",
+                  fontWeight: 700,
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#7c2d12",
+                }}
+              >
+                From
+                <select
+                  value={manualAuthorId}
+                  onChange={(e) => setManualAuthorId(e.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fdba74",
+                    background: "#fff",
+                    fontSize: 13,
+                  }}
+                >
+                  {manualAuthorOptions.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#7c2d12",
+                }}
+              >
+                To
+                <select
+                  value={manualTargetId}
+                  onChange={(e) => setManualTargetId(e.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fdba74",
+                    background: "#fff",
+                    fontSize: 13,
+                  }}
+                >
+                  {manualTargetOptions.map((player) => (
+                    <option key={player.id} value={player.id}>
+                      {player.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#7c2d12",
+                }}
+              >
+                Round
+                <select
+                  value={manualRoundId}
+                  onChange={(e) => setManualRoundId(e.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fdba74",
+                    background: "#fff",
+                    fontSize: 13,
+                  }}
+                >
+                  {ROUNDS.map((round) => (
+                    <option key={round.id} value={round.id}>
+                      Round {round.num} · {round.courseName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label
+                style={{
+                  display: "grid",
+                  gap: 6,
+                  fontSize: 12,
+                  fontWeight: 700,
+                  color: "#7c2d12",
+                }}
+              >
+                Sledge
+                <textarea
+                  value={manualMessage}
+                  onChange={(e) => setManualMessage(e.target.value)}
+                  placeholder="Write the chirp exactly how you want it to appear in the feed."
+                  style={{
+                    minHeight: 110,
+                    padding: "10px 12px",
+                    borderRadius: 10,
+                    border: "1px solid #fdba74",
+                    resize: "vertical",
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                  }}
+                />
+              </label>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 12,
+                marginTop: 14,
+                flexWrap: "wrap",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: 11,
+                  color: manualStatus.toLowerCase().includes("failed")
+                    ? "#b91c1c"
+                    : "#9a3412",
+                }}
+              >
+                {manualStatus ||
+                  "Manual sledges post instantly to the live feed."}
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setShowManualModal(false)}
+                  style={{
+                    padding: "9px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#475569",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!manualAuthorId || !manualTargetId || !manualMessage.trim()) {
+                      setManualStatus(
+                        "Add the sender, receiver, and sledge before submitting.",
+                      );
+                      return;
+                    }
+                    upd((s) => {
+                      submitManualSledge(s, {
+                        authorId: manualAuthorId,
+                        targetId: manualTargetId,
+                        message: manualMessage,
+                        roundId: manualRoundId,
+                      });
+                    });
+                    setManualStatus("Sledge submitted.");
+                    setManualMessage("");
+                    setShowManualModal(false);
+                  }}
+                  style={{
+                    padding: "9px 14px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#ea580c",
+                    color: "#fff",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -4822,6 +5192,10 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
     });
   }
 
+  const firstLockedHoleIdx = course.holes.findIndex(
+    (_, idx) => !canEnterHoleScores(state, roundId, playerId, idx),
+  );
+
   const handleSubmit = () => {
     upd((s) => {
       if (!s.submitted) s.submitted = {};
@@ -4838,6 +5212,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   };
 
   const setScore = (pid, holeIdx, val) => {
+    if (!isAdmin && !canEnterHoleScores(state, roundId, playerId, holeIdx))
+      return;
     upd((s) => {
       if (!s.scores[roundId]) s.scores[roundId] = {};
       if (!s.scores[roundId][pid]) s.scores[roundId][pid] = Array(18).fill(0);
@@ -5264,6 +5640,25 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         </div>
       )}
 
+      {roundScoringLive && isMine && !isAdmin && firstLockedHoleIdx > 0 && (
+        <div
+          style={{
+            padding: "8px 12px",
+            marginBottom: 8,
+            borderRadius: 8,
+            background: "#eff6ff",
+            border: "1px solid #bfdbfe",
+            fontSize: 12,
+            color: "#1d4ed8",
+            fontWeight: 600,
+          }}
+        >
+          Finish both your score and {partner?.short || "your partner"}'s score
+          on hole {firstLockedHoleIdx} before moving to hole{" "}
+          {firstLockedHoleIdx + 1}.
+        </div>
+      )}
+
       {/* Column labels */}
       <div
         style={{
@@ -5318,6 +5713,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
       {/* Scrollable hole list */}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {course.holes.map((h, i) => {
+          const holeUnlocked =
+            isAdmin || canEnterHoleScores(state, roundId, playerId, i);
           const val = scores[i] || 0;
           const isPU = isPickup(val);
           const strk = hStrokes(dH, h);
@@ -5482,7 +5879,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       gap: 6,
                     }}
                   >
-                    {canEdit ? (
+                    {canEdit && holeUnlocked ? (
                       <>
                         {isPU ? (
                           <div
@@ -5574,8 +5971,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                           background: "#f8faf8",
                         }}
                       >
-                        {isPU ? "P" : val || "—"}
-                      </div>
+                          {!holeUnlocked && !val ? "🔒" : isPU ? "P" : val || "—"}
+                        </div>
                     )}
                   </div>
                   <div
@@ -5635,9 +6032,9 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       return (
                         <button
                           onClick={() =>
-                            canEdit && toggleChulligan(playerId, i)
+                            canEdit && holeUnlocked && toggleChulligan(playerId, i)
                           }
-                          disabled={!canEdit || cState.locked}
+                          disabled={!canEdit || !holeUnlocked || cState.locked}
                           style={{
                             padding: "4px 7px",
                             borderRadius: 6,
@@ -5646,18 +6043,21 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                             fontSize: 12,
                             fontWeight: 700,
                             color:
-                              !canEdit && !cState.active
-                                ? "#cbd5e1"
+                                (!canEdit || !holeUnlocked) && !cState.active
+                                  ? "#cbd5e1"
                                 : cState.locked
                                   ? "#cbd5e1"
                                   : cState.active
                                     ? "#d97706"
                                     : "#94a3b8",
                             cursor:
-                              !canEdit || cState.locked
+                              !canEdit || !holeUnlocked || cState.locked
                                 ? "not-allowed"
                                 : "pointer",
-                            opacity: !canEdit || cState.locked ? 0.7 : 1,
+                            opacity:
+                              !canEdit || !holeUnlocked || cState.locked
+                                ? 0.7
+                                : 1,
                           }}
                         >
                           {cState.active ? "✓🍺" : "🍺"}
@@ -5775,7 +6175,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                         gap: 6,
                       }}
                     >
-                      {(isAdmin || (roundScoringLive && isMine)) &&
+                      {(isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
                       !isSubmitted(state, roundId, partnerId) ? (
                         <>
                           {pIsPU ? (
@@ -5870,7 +6270,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                             background: "#fafafa",
                           }}
                         >
-                          {pIsPU ? "P" : pVal || "—"}
+                          {!holeUnlocked && !pVal ? "🔒" : pIsPU ? "P" : pVal || "—"}
                         </div>
                       )}
                     </div>
@@ -5910,7 +6310,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       {(() => {
                         const cState = chulliganButtonState(partnerId, i);
                         const canEditPartner =
-                          (isAdmin || (roundScoringLive && isMine)) &&
+                          (isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
                           !isSubmitted(state, roundId, partnerId);
                         return (
                           <button
@@ -5946,6 +6346,21 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                         );
                       })()}
                     </div>
+                  </div>
+                )}
+
+                {!holeUnlocked && !isAdmin && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: "1px dashed #e2e8f0",
+                      fontSize: 11,
+                      color: "#1d4ed8",
+                      fontWeight: 600,
+                    }}
+                  >
+                    Locked until both scores are entered for hole {h.n - 1}.
                   </div>
                 )}
               </div>
