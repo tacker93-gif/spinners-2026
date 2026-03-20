@@ -2680,6 +2680,15 @@ function App() {
           localStorage.setItem(ACCESS_GRANTED_KEY, "1");
           setHasAccess(true);
         }}
+        onSpectator={() => {
+          localStorage.setItem(ACCESS_GRANTED_KEY, "1");
+          setHasAccess(true);
+          setIsAdmin(false);
+          setIsSpectator(true);
+          setCur("spectator");
+          setTab("cup");
+          setSub(null);
+        }}
       />
     );
   if (!cur)
@@ -2902,7 +2911,7 @@ function App() {
   );
 }
 
-function AccessGate({ onGrant }) {
+function AccessGate({ onGrant, onSpectator }) {
   const [password, setPassword] = useState("");
   const [err, setErr] = useState(false);
   if (!APP_PASSWORD) {
@@ -2962,9 +2971,27 @@ function AccessGate({ onGrant }) {
               cursor: "pointer",
               fontSize: 14,
               minHeight: 44,
+              marginBottom: 10,
             }}
           >
             Continue
+          </button>
+          <button
+            onClick={onSpectator}
+            style={{
+              width: "100%",
+              padding: "12px 16px",
+              borderRadius: 10,
+              border: "1px solid #d1d5db",
+              background: "#fff",
+              color: "#334155",
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: 14,
+              minHeight: 44,
+            }}
+          >
+            Continue as spectator
           </button>
         </div>
         <SponsorFooter />
@@ -3052,9 +3079,27 @@ function AccessGate({ onGrant }) {
             cursor: "pointer",
             fontSize: 14,
             minHeight: 44,
+            marginBottom: 10,
           }}
         >
           Enter
+        </button>
+        <button
+          onClick={onSpectator}
+          style={{
+            width: "100%",
+            padding: "11px 16px",
+            borderRadius: 10,
+            border: "1px solid #d1d5db",
+            background: "#fff",
+            color: "#334155",
+            fontWeight: 700,
+            cursor: "pointer",
+            fontSize: 14,
+            minHeight: 44,
+          }}
+        >
+          Continue as spectator
         </button>
         {err && (
           <p
