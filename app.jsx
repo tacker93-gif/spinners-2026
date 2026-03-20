@@ -2256,29 +2256,6 @@ function canEnterHoleScores(state, roundId, playerId, holeIdx) {
   return holeFilled(prevPlayerScore) && holeFilled(prevPartnerScore);
 }
 
-function submitManualSledge(state, { authorId, targetId, message, roundId }) {
-  if (!state?.eventLive || !authorId || !targetId || !message?.trim()) return false;
-  if (!state.sledgeFeed) state.sledgeFeed = [];
-  const author = getP(authorId);
-  const target = getP(targetId);
-  const now = Date.now();
-  state.sledgeFeed = pruneExpiredSledges(state.sledgeFeed, now);
-  state.sledgeFeed.unshift({
-    id: `${now}_manual_${Math.random().toString(36).slice(2, 8)}`,
-    roundId: roundId || null,
-    playerId: targetId,
-    playerIds: [authorId, targetId],
-    hole: null,
-    catalystKey: `manual:${authorId}:${targetId}`,
-    message: `✍️ ${author?.short || "Someone"} to ${target?.short || "someone"}: ${message.trim()}`,
-    at: new Date(now).toISOString(),
-    authorId,
-    targetId,
-    manual: true,
-  });
-  return true;
-}
-
 function getRoundLeaderboard(state, round) {
   const course = getCourse(round.courseId);
   return PLAYERS.map((p) => {
@@ -2834,7 +2811,7 @@ function App() {
           />
         )}
         {tab === "sledge" && !sub && (
-          <SledgeFeedPage state={state} upd={upd} cur={cur} live={live} />
+          <SledgeFeedPage state={state} cur={cur} live={live} />
         )}
         {tab === "leaders" && !sub && (
           <LeaderList onSelect={(id) => setSub({ t: "lb", id })} />
@@ -4495,28 +4472,15 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
   );
 }
 
-function SledgeFeedPage({ state, upd, cur, live }) {
+function SledgeFeedPage({ state, cur, live }) {
   const activeViewer =
     cur && cur !== "admin" && cur !== "spectator" ? cur : null;
   const [localSledgeReads, setLocalSledgeReads] = useState(() =>
     readLocalSledgeReads(activeViewer),
   );
-  const [showManualModal, setShowManualModal] = useState(false);
-  const [manualAuthorId, setManualAuthorId] = useState(activeViewer || "");
-  const [manualTargetId, setManualTargetId] = useState(
-    PLAYERS.find((player) => player.id !== (activeViewer || ""))?.id || "",
-  );
-  const [manualRoundId, setManualRoundId] = useState(ROUNDS[0]?.id || "");
-  const [manualMessage, setManualMessage] = useState("");
-  const [manualStatus, setManualStatus] = useState("");
-
   useEffect(() => {
     setLocalSledgeReads(readLocalSledgeReads(activeViewer));
   }, [activeViewer, state?.sledgeFeed?.length]);
-
-  useEffect(() => {
-    if (activeViewer) setManualAuthorId(activeViewer);
-  }, [activeViewer]);
 
   useEffect(() => {
     if (!activeViewer) return undefined;
@@ -4540,54 +4504,9 @@ function SledgeFeedPage({ state, upd, cur, live }) {
     if (nextReads) setLocalSledgeReads(nextReads);
   }, [activeViewer, unreadItems]);
 
-  const manualAuthorOptions = PLAYERS;
-  const manualTargetOptions = PLAYERS.filter(
-    (player) => player.id !== manualAuthorId,
-  );
-
-  useEffect(() => {
-    if (!manualTargetOptions.find((player) => player.id === manualTargetId)) {
-      setManualTargetId(manualTargetOptions[0]?.id || "");
-    }
-  }, [manualTargetId, manualTargetOptions]);
-
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <h2 style={S.sectTitle}>Sledge Feed</h2>
-        {live && upd && (
-          <button
-            onClick={() => {
-              setManualStatus("");
-              setShowManualModal(true);
-            }}
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: 17,
-              border: "none",
-              background: "#ea580c",
-              color: "#fff",
-              fontSize: 22,
-              lineHeight: 1,
-              fontWeight: 700,
-              cursor: "pointer",
-              flexShrink: 0,
-            }}
-            title="Add manual sledge"
-            aria-label="Add manual sledge"
-          >
-            +
-          </button>
-        )}
-      </div>
+      <h2 style={S.sectTitle}>Sledge Feed</h2>
       <div
         style={{
           ...S.card,
@@ -4763,263 +4682,6 @@ function SledgeFeedPage({ state, upd, cur, live }) {
                 </div>
               );
             })}
-          </div>
-        </div>
-      )}
-
-      {showManualModal && live && upd && (
-        <div
-          onClick={() => setShowManualModal(false)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.65)",
-            zIndex: 280,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 16,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "min(520px,100%)",
-              background: "#fff",
-              borderRadius: 16,
-              border: "1px solid #fed7aa",
-              padding: 18,
-              boxShadow: "0 20px 40px rgba(0,0,0,.25)",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "flex-start",
-                gap: 12,
-              }}
-            >
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 800,
-                    color: "#c2410c",
-                    textTransform: "uppercase",
-                    letterSpacing: 0.8,
-                  }}
-                >
-                  Manual Sledge
-                </div>
-                <div
-                  style={{
-                    fontSize: 20,
-                    fontWeight: 800,
-                    color: "#7c2d12",
-                    fontFamily: "'Playfair Display',serif",
-                  }}
-                >
-                  Fire one straight into the feed
-                </div>
-              </div>
-              <button
-                onClick={() => setShowManualModal(false)}
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 15,
-                  border: "1px solid #cbd5e1",
-                  background: "#fff",
-                  color: "#475569",
-                  cursor: "pointer",
-                  fontWeight: 700,
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-              <label
-                style={{
-                  display: "grid",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#7c2d12",
-                }}
-              >
-                From
-                <select
-                  value={manualAuthorId}
-                  onChange={(e) => setManualAuthorId(e.target.value)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #fdba74",
-                    background: "#fff",
-                    fontSize: 13,
-                  }}
-                >
-                  {manualAuthorOptions.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label
-                style={{
-                  display: "grid",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#7c2d12",
-                }}
-              >
-                To
-                <select
-                  value={manualTargetId}
-                  onChange={(e) => setManualTargetId(e.target.value)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #fdba74",
-                    background: "#fff",
-                    fontSize: 13,
-                  }}
-                >
-                  {manualTargetOptions.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {player.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label
-                style={{
-                  display: "grid",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#7c2d12",
-                }}
-              >
-                Round
-                <select
-                  value={manualRoundId}
-                  onChange={(e) => setManualRoundId(e.target.value)}
-                  style={{
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #fdba74",
-                    background: "#fff",
-                    fontSize: 13,
-                  }}
-                >
-                  {ROUNDS.map((round) => (
-                    <option key={round.id} value={round.id}>
-                      Round {round.num} · {round.courseName}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label
-                style={{
-                  display: "grid",
-                  gap: 6,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  color: "#7c2d12",
-                }}
-              >
-                Sledge
-                <textarea
-                  value={manualMessage}
-                  onChange={(e) => setManualMessage(e.target.value)}
-                  placeholder="Write the chirp exactly how you want it to appear in the feed."
-                  style={{
-                    minHeight: 110,
-                    padding: "10px 12px",
-                    borderRadius: 10,
-                    border: "1px solid #fdba74",
-                    resize: "vertical",
-                    fontSize: 13,
-                    lineHeight: 1.5,
-                  }}
-                />
-              </label>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                gap: 12,
-                marginTop: 14,
-                flexWrap: "wrap",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: 11,
-                  color: manualStatus.toLowerCase().includes("failed")
-                    ? "#b91c1c"
-                    : "#9a3412",
-                }}
-              >
-                {manualStatus ||
-                  "Manual sledges post instantly to the live feed."}
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button
-                  onClick={() => setShowManualModal(false)}
-                  style={{
-                    padding: "9px 14px",
-                    borderRadius: 8,
-                    border: "1px solid #cbd5e1",
-                    background: "#fff",
-                    color: "#475569",
-                    fontWeight: 600,
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={() => {
-                    if (!manualAuthorId || !manualTargetId || !manualMessage.trim()) {
-                      setManualStatus(
-                        "Add the sender, receiver, and sledge before submitting.",
-                      );
-                      return;
-                    }
-                    upd((s) => {
-                      submitManualSledge(s, {
-                        authorId: manualAuthorId,
-                        targetId: manualTargetId,
-                        message: manualMessage,
-                        roundId: manualRoundId,
-                      });
-                    });
-                    setManualStatus("Sledge submitted.");
-                    setManualMessage("");
-                    setShowManualModal(false);
-                  }}
-                  style={{
-                    padding: "9px 14px",
-                    borderRadius: 8,
-                    border: "none",
-                    background: "#ea580c",
-                    color: "#fff",
-                    fontWeight: 700,
-                    cursor: "pointer",
-                  }}
-                >
-                  Submit
-                </button>
-              </div>
-            </div>
           </div>
         </div>
       )}
