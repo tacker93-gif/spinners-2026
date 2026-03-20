@@ -1750,6 +1750,7 @@ function normalizeState(raw) {
   return next;
 }
 
+const SLEDGE_COOLDOWN_MS = 20 * 60 * 1000;
 const SLEDGE_TTL_MS = 60 * 60 * 1000;
 
 function pickSledge(lines) {
@@ -2026,6 +2027,25 @@ function buildSledgeMessage(type, context) {
   return typeof line === "function" ? line(context || {}) : line;
 }
 
+function canPushSledgeForPlayers(state, roundId, playerIds, now = Date.now()) {
+  if (!state?.eventLive) return false;
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  const ids = [...new Set((playerIds || []).filter(Boolean))];
+  if (ids.length === 0) return true;
+  return ids.every((pid) => {
+    const playerKey = `${roundId}:player:${pid}`;
+    const last = state.sledgeMeta[playerKey] || { at: 0 };
+    return now - last.at >= SLEDGE_COOLDOWN_MS;
+  });
+}
+
+function stampSledgePlayers(state, roundId, playerIds, now = Date.now()) {
+  if (!state.sledgeMeta) state.sledgeMeta = {};
+  [...new Set((playerIds || []).filter(Boolean))].forEach((pid) => {
+    state.sledgeMeta[`${roundId}:player:${pid}`] = { at: now };
+  });
+}
+
 function removeSledgeFeedItems(state, predicate) {
   if (!state?.sledgeFeed?.length) return;
   state.sledgeFeed = pruneExpiredSledges(state.sledgeFeed).filter(
@@ -2044,7 +2064,14 @@ function pushSledgeFeed(
   const impactedPlayers = [
     ...new Set((playerIds || [playerId]).filter(Boolean)),
   ];
+  const metaKey = `${roundId}:${catalystKey}`;
+  const last = state.sledgeMeta[metaKey] || { at: 0 };
+  if (now - last.at < SLEDGE_COOLDOWN_MS) return false;
+  if (!canPushSledgeForPlayers(state, roundId, impactedPlayers, now))
+    return false;
 
+  state.sledgeMeta[metaKey] = { at: now };
+  stampSledgePlayers(state, roundId, impactedPlayers, now);
   state.sledgeFeed = pruneExpiredSledges(state.sledgeFeed, now);
   state.sledgeFeed.unshift({
     id: `${now}_${catalystKey}_${Math.random().toString(36).slice(2, 8)}`,
@@ -4394,12 +4421,6 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
   );
 }
 
-function getSledgeLocationLabel(item) {
-  const round = ROUNDS.find((entry) => entry.id === item?.roundId);
-  const courseLabel = round?.courseName || "Unknown Course";
-  return item?.hole ? `${courseLabel} - Hole ${item.hole}` : courseLabel;
-}
-
 function SledgeFeedPage({ state, cur, live }) {
   const activeViewer =
     cur && cur !== "admin" && cur !== "spectator" ? cur : null;
@@ -4535,14 +4556,12 @@ function SledgeFeedPage({ state, cur, live }) {
           >
             {items.map((item, idx) => {
               const isUnread = !!activeViewer && !localSledgeReads?.[item.id];
-              const locationLabel = getSledgeLocationLabel(item);
               return (
                 <div
                   key={item.id}
                   style={{
                     ...S.card,
                     marginBottom: 0,
-                    padding: "10px 12px",
                     border: `1px solid ${isUnread ? "#fdba74" : "#e2e8f0"}`,
                     background: isUnread ? "#fff7ed" : "#fff",
                   }}
@@ -4551,9 +4570,9 @@ function SledgeFeedPage({ state, cur, live }) {
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "flex-start",
+                      alignItems: "center",
                       gap: 8,
-                      marginBottom: 4,
+                      marginBottom: 6,
                     }}
                   >
                     <div
@@ -4566,26 +4585,22 @@ function SledgeFeedPage({ state, cur, live }) {
                       Sledge #{items.length - idx}
                     </div>
                     <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        flexWrap: "wrap",
-                        justifyContent: "flex-end",
-                      }}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
                     >
-                      <span
-                        style={{
-                          fontSize: 10,
-                          fontWeight: 700,
-                          color: "#b45309",
-                          background: "#ffedd5",
-                          padding: "3px 8px",
-                          borderRadius: 999,
-                        }}
-                      >
-                        {locationLabel}
-                      </span>
+                      {item.roundId && (
+                        <span
+                          style={{
+                            fontSize: 10,
+                            fontWeight: 700,
+                            color: "#b45309",
+                            background: "#ffedd5",
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                          }}
+                        >
+                          Round {String(item.roundId).replace("r", "")}
+                        </span>
+                      )}
                       {isUnread && (
                         <span
                           style={{
@@ -4593,7 +4608,7 @@ function SledgeFeedPage({ state, cur, live }) {
                             fontWeight: 800,
                             color: "#fff",
                             background: "#ea580c",
-                            padding: "3px 8px",
+                            padding: "4px 8px",
                             borderRadius: 999,
                           }}
                         >
@@ -4609,7 +4624,7 @@ function SledgeFeedPage({ state, cur, live }) {
                   </div>
                   {item.hole && (
                     <div
-                      style={{ fontSize: 11, color: "#b45309", marginTop: 6 }}
+                      style={{ fontSize: 11, color: "#b45309", marginTop: 8 }}
                     >
                       Hole {item.hole}
                     </div>
