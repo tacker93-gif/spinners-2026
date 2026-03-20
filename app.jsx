@@ -850,6 +850,11 @@ function TeamPairDisplay({
   );
 }
 
+const HIDDEN_PLAYER_IMAGE_FILTER =
+  "grayscale(100%) contrast(1.35) brightness(0.92) blur(6px)";
+const HIDDEN_PLAYER_IMAGE_OVERLAY =
+  "linear-gradient(180deg, rgba(248,250,252,0.08) 0%, rgba(226,232,240,0.45) 44%, rgba(226,232,240,0.96) 68%, rgba(226,232,240,1) 100%)";
+
 function PlayerAvatar({
   id,
   size = 32,
@@ -902,7 +907,17 @@ function PlayerAvatar({
   }, [src]);
 
   return src ? (
-    <div ref={holderRef} style={{ width: size, height: size, flexShrink: 0 }}>
+    <div
+      ref={holderRef}
+      style={{
+        width: size,
+        height: size,
+        flexShrink: 0,
+        position: "relative",
+        overflow: "hidden",
+        borderRadius: "50%",
+      }}
+    >
       {!visible || failed ? (
         <div
           aria-label={player?.name || "Player"}
@@ -938,12 +953,46 @@ function PlayerAvatar({
             borderRadius: "50%",
             border: `2px solid ${borderColor}`,
             objectFit: "cover",
+            objectPosition: live ? "center" : "center 18%",
+            transform: live ? "none" : "scale(1.18)",
             flexShrink: 0,
-            filter: live
-              ? "none"
-              : "grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)",
+            filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
           }}
         />
+      )}
+      {!live && visible && !failed && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "absolute",
+            inset: 0,
+            borderRadius: "50%",
+            border: `2px solid ${borderColor}`,
+            background: HIDDEN_PLAYER_IMAGE_OVERLAY,
+            display: "grid",
+            placeItems: "center",
+            boxSizing: "border-box",
+            backdropFilter: "blur(1px)",
+          }}
+        >
+          <div
+            style={{
+              width: Math.round(size * 0.46),
+              height: Math.round(size * 0.46),
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.86)",
+              border: "1px solid rgba(148,163,184,0.6)",
+              color: "#475569",
+              display: "grid",
+              placeItems: "center",
+              fontSize: Math.max(9, Math.round(size * 0.18)),
+              fontWeight: 800,
+              letterSpacing: 0.4,
+            }}
+          >
+            ?
+          </div>
+        </div>
       )}
     </div>
   ) : (
@@ -8801,23 +8850,65 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                 ×
               </button>
             </div>
-            <img
-              src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
-              alt={getP(selectedBio)?.name}
+            <div
               style={{
-                display: "block",
+                position: "relative",
                 width: "100%",
                 maxWidth: 280,
                 aspectRatio: "1 / 1",
-                borderRadius: 14,
-                objectFit: "cover",
                 margin: "0 auto 14px",
+                borderRadius: 14,
+                overflow: "hidden",
                 border: "2px solid #e2e8f0",
-                filter: live
-                  ? "none"
-                  : "grayscale(100%) brightness(1.1) contrast(0.8) sepia(15%)",
+                background: "#e2e8f0",
               }}
-            />
+            >
+              <img
+                src={PLAYER_BIO_IMAGES[selectedBio] || PLAYER_PHOTOS[selectedBio]}
+                alt={getP(selectedBio)?.name}
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: 14,
+                  objectFit: "cover",
+                  objectPosition: live ? "center" : "center 15%",
+                  transform: live ? "none" : "scale(1.22)",
+                  filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
+                }}
+              />
+              {!live && (
+                <div
+                  aria-hidden="true"
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    background: HIDDEN_PLAYER_IMAGE_OVERLAY,
+                    display: "flex",
+                    alignItems: "flex-end",
+                    justifyContent: "center",
+                    padding: 18,
+                    boxSizing: "border-box",
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: "9px 14px",
+                      borderRadius: 999,
+                      background: "rgba(255,255,255,0.92)",
+                      border: "1px solid rgba(148,163,184,0.65)",
+                      color: "#475569",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      letterSpacing: 0.7,
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    Revealed when live
+                  </div>
+                </div>
+              )}
+            </div>
             <p
               style={{
                 margin: 0,
