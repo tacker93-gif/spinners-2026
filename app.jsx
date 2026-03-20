@@ -7134,7 +7134,7 @@ function TripSchedule({ onBack }) {
         },
         {
           time: "After golf",
-          text: "Beers & Dinner at St Andrews Beach Brewery 🍺",
+          text: "Dinner — TBC",
         },
       ],
     },
