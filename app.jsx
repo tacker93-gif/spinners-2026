@@ -830,6 +830,11 @@ function holeName(n) {
   return `${n}${suf} Hole`;
 }
 function sLabel(pts) { return pts>=5?"Eagle+":pts===4?"Eagle":pts===3?"Birdie":pts===2?"Par":pts===1?"Bogey":"Dbl+"; }
+function grossLabel(gross, par) {
+  if (!gross || gross < 0) return "";
+  const diff = gross - par;
+  return diff <= -2 ? "Eagle+" : diff === -1 ? "Birdie" : diff === 0 ? "Par" : diff === 1 ? "Bogey" : "Dbl+";
+}
 function sColor(pts) { return pts>=3?"#16a34a":pts===2?"#B8860B":pts===1?"#d97706":"#dc2626"; }
 function pStab(scores,course,dHcp) { let t=0; course.holes.forEach((h,i)=>{t+=sPts(scores?.[i]||0,h.par,hStrokes(dHcp,h));}); return t; }
 
@@ -2365,7 +2370,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                   </div>
                   <div style={{width:60,textAlign:"right",flexShrink:0,display:"flex",flexDirection:"column",alignItems:"flex-end",gap:6}}>
                     {isPU?(<div><div style={{fontSize:18,fontWeight:700,color:"#94a3b8",fontFamily:"'JetBrains Mono',monospace"}}>0pts</div><div style={{fontSize:10,color:"#94a3b8"}}>Pickup</div></div>)
-                    :val>0?(<div><div style={{fontSize:22,fontWeight:700,color:sColor(pts),fontFamily:"'JetBrains Mono',monospace"}}>{pts}pts</div><div style={{fontSize:10,fontWeight:600,color:sColor(pts)}}>{sLabel(pts)}</div></div>)
+                    :val>0?(<div><div style={{fontSize:22,fontWeight:700,color:sColor(pts),fontFamily:"'JetBrains Mono',monospace"}}>{pts}pts</div><div style={{fontSize:10,fontWeight:600,color:sColor(pts)}}>{grossLabel(val, h.par)}</div></div>)
                     :<div style={{color:"#d1d5db"}}>—</div>}
                     {(()=>{const cState=chulliganButtonState(playerId,i);return (
                       <button onClick={()=>canEdit && toggleChulligan(playerId,i)} disabled={!canEdit || cState.locked}
@@ -2426,7 +2431,7 @@ function ScoreEntry({state,upd,roundId,playerId,isAdmin,cur,onBack}){
                     </div>
                     <div style={{minWidth:56,textAlign:"right",display:"flex",flexDirection:"column",alignItems:"flex-end",gap:5}}>
                       {pIsPU?(<div style={{fontSize:11,color:"#94a3b8"}}>0pts</div>)
-                      :pVal>0?(<div><div style={{fontSize:14,fontWeight:600,color:sColor(pPts),fontFamily:"'JetBrains Mono',monospace"}}>{pPts}pts</div><div style={{fontSize:8,color:sColor(pPts)}}>{sLabel(pPts)}</div></div>)
+                      :pVal>0?(<div><div style={{fontSize:14,fontWeight:600,color:sColor(pPts),fontFamily:"'JetBrains Mono',monospace"}}>{pPts}pts</div><div style={{fontSize:8,color:sColor(pPts)}}>{grossLabel(pVal, h.par)}</div></div>)
                       :<div style={{color:"#d1d5db",fontSize:11}}>—</div>}
                       {(()=>{const cState=chulliganButtonState(partnerId,i); const canEditPartner=(isAdmin || (roundScoringLive && isMine)) && !isSubmitted(state, roundId, partnerId); return (
                         <button onClick={()=>canEditPartner && toggleChulligan(partnerId,i)} disabled={!canEditPartner || cState.locked}
