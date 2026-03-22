@@ -2892,21 +2892,14 @@ function App() {
         )}
         {tab === "schedule" &&
           sub?.t === "sched" &&
-          sub.id === "matches" &&
-          (live ? (
+          sub.id === "matches" && (
             <MatchSchedule
               state={state}
               live={live}
               isAdmin={isAdmin}
               onBack={() => setSub(null)}
             />
-          ) : (
-            <LockedMessage
-              title="Match Schedule"
-              msg="The match schedule and team draw will be revealed on game day. Stay tuned! 🏌️"
-              onBack={() => setSub(null)}
-            />
-          ))}
+          )}
         {tab === "schedule" && sub?.t === "sched" && sub.id === "trip" && (
           <TripSchedule onBack={() => setSub(null)} />
         )}
@@ -7055,6 +7048,8 @@ function ScheduleMenu({ onSelect }) {
 
 // ─── Match Schedule ──────────────────────────────────────────
 function MatchSchedule({ state, live, isAdmin, onBack }) {
+  const showPlayerNames = live || isAdmin;
+
   return (
     <div>
       <button onClick={onBack} style={S.backBtn}>
@@ -7127,122 +7122,106 @@ function MatchSchedule({ state, live, isAdmin, onBack }) {
               >
                 Tee Times & Draw
               </div>
-              {!isRoundRevealed(state, round.id, live, isAdmin) ? (
+              {round.matches.map((match, mi) => (
                 <div
+                  key={match.id}
                   style={{
-                    padding: "10px 12px",
+                    padding: "8px 10px",
                     background: "#fff",
                     borderRadius: 8,
-                    border: "1px dashed #cbd5e1",
+                    marginBottom: 6,
+                    border: "1px solid #e2e8f0",
                   }}
                 >
                   <div
-                    style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      marginBottom: 4,
+                    }}
                   >
-                    Round locked
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                    Pairings reveal when scoring opens for this round.
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {round.matches.map((match, mi) => (
-                    <div
-                      key={match.id}
+                    <span
                       style={{
-                        padding: "8px 10px",
-                        background: "#fff",
-                        borderRadius: 8,
-                        marginBottom: 6,
-                        border: "1px solid #e2e8f0",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "#2d6a4f",
+                        fontFamily: "'JetBrains Mono',monospace",
                       }}
                     >
-                      <div
+                      {round.teeTimes[mi]}
+                    </span>
+                    <span style={{ fontSize: 10, color: "#94a3b8" }}>
+                      Match {mi + 1}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#B8860B",
+                        flex: 1,
+                      }}
+                    >
+                      <span
                         style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          marginBottom: 4,
+                          display: "inline-flex",
+                          flexDirection: "column",
+                          lineHeight: 1.2,
+                          alignItems: "flex-start",
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: "#2d6a4f",
-                            fontFamily: "'JetBrains Mono',monospace",
-                          }}
-                        >
-                          {round.teeTimes[mi]}
+                        <span>
+                          {showPlayerNames
+                            ? match.blue.map((id) => getP(id)?.name)[0]
+                            : "Player 1"}
                         </span>
-                        <span style={{ fontSize: 10, color: "#94a3b8" }}>
-                          Match {mi + 1}
+                        <span>
+                          {showPlayerNames
+                            ? match.blue.map((id) => getP(id)?.name)[1]
+                            : "Player 2"}
                         </span>
-                      </div>
-                      <div
+                      </span>
+                    </span>
+                    <span style={{ fontSize: 10, color: "#94a3b8" }}>vs</span>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: "#B91C1C",
+                        flex: 1,
+                        textAlign: "right",
+                      }}
+                    >
+                      <span
                         style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
+                          display: "inline-flex",
+                          flexDirection: "column",
+                          lineHeight: 1.2,
+                          alignItems: "flex-end",
                         }}
                       >
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "#B8860B",
-                            flex: 1,
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              flexDirection: "column",
-                              lineHeight: 1.2,
-                              alignItems: "flex-start",
-                            }}
-                          >
-                            <span>
-                              {match.blue.map((id) => getP(id)?.name)[0]}
-                            </span>
-                            <span>
-                              {match.blue.map((id) => getP(id)?.name)[1]}
-                            </span>
-                          </span>
+                        <span>
+                          {showPlayerNames
+                            ? match.grey.map((id) => getP(id)?.name)[0]
+                            : "Player 3"}
                         </span>
-                        <span style={{ fontSize: 10, color: "#94a3b8" }}>
-                          vs
+                        <span>
+                          {showPlayerNames
+                            ? match.grey.map((id) => getP(id)?.name)[1]
+                            : "Player 4"}
                         </span>
-                        <span
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 600,
-                            color: "#B91C1C",
-                            flex: 1,
-                            textAlign: "right",
-                          }}
-                        >
-                          <span
-                            style={{
-                              display: "inline-flex",
-                              flexDirection: "column",
-                              lineHeight: 1.2,
-                              alignItems: "flex-end",
-                            }}
-                          >
-                            <span>
-                              {match.grey.map((id) => getP(id)?.name)[0]}
-                            </span>
-                            <span>
-                              {match.grey.map((id) => getP(id)?.name)[1]}
-                            </span>
-                          </span>
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </>
-              )}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         );
