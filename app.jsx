@@ -7055,6 +7055,8 @@ function MatchSchedule({ state, isAdmin, onBack }) {
       <h2 style={S.sectTitle}>Match Schedule & Draw</h2>
       {ROUNDS.map((round) => {
         const course = getCourse(round.courseId);
+        const teeKey = getTeeKey(state, round.courseId);
+        const teeLabel = getTeeLabel(course, teeKey);
         const showPlayerNames = isAdmin || isRoundScoringLive(state, round.id);
         return (
           <div
@@ -7098,8 +7100,8 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                 fontFamily: "'JetBrains Mono',monospace",
               }}
             >
-              Par {course.par} · Slope {getSlope(course, "white")} · CR{" "}
-              {getRating(course, "white")} · White Tees
+              Par {course.par} · Slope {getSlope(course, teeKey)} · CR{" "}
+              {getRating(course, teeKey)} · {teeLabel} Tees
             </div>
             <div
               style={{
