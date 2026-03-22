@@ -7598,6 +7598,7 @@ function RulesPage({ state, onBack }) {
         "Each player is allowed 1 Chulligan per 9 holes (2 per round).",
         "A Chulligan allows you to retake a shot (mulligan) — but only if you skull a drink first.",
         "No Chulligans in front of the clubhouse.",
+        "Chulligans cannot be used on a putt.",
         "Chulligans are on the honour system. Your playing partners are your witnesses.",
       ],
     },
