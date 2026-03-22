@@ -4898,6 +4898,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   const [confirmSubmit, setConfirmSubmit] = useState(false);
   const [showHoleInfo, setShowHoleInfo] = useState(null); // hole index or null
   const [showRoundKickoff, setShowRoundKickoff] = useState(false);
+  const [pendingCompClaim, setPendingCompClaim] = useState(null);
 
   const round = ROUNDS.find((r) => r.id === roundId);
   const course = getCourse(round.courseId);
@@ -5027,11 +5028,165 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
     };
   };
 
+  const confirmCompClaim = ({ type, key, playerId: claimPlayerId, hole }) => {
+    upd((s) => {
+      if (type === "ntp") {
+        if (!s.ntpWinners) s.ntpWinners = {};
+        const next = s.ntpWinners[key] === claimPlayerId ? null : claimPlayerId;
+        s.ntpWinners[key] = next;
+        if (next === claimPlayerId)
+          maybePushCompClaimSledge(s, {
+            roundId,
+            playerId: claimPlayerId,
+            type: "ntp",
+          });
+      } else {
+        if (!s.ldWinners) s.ldWinners = {};
+        const next = s.ldWinners[key] === claimPlayerId ? null : claimPlayerId;
+        s.ldWinners[key] = next;
+        if (next === claimPlayerId)
+          maybePushCompClaimSledge(s, {
+            roundId,
+            playerId: claimPlayerId,
+            type: "ld",
+          });
+      }
+    });
+    setPendingCompClaim(null);
+  };
+
+  const pendingClaimPlayer = pendingCompClaim?.playerId
+    ? getP(pendingCompClaim.playerId)
+    : null;
+  const pendingClaimLabel = pendingCompClaim?.type === "ld" ? "Longest Drive" : "NTP";
+  const pendingClaimBadge = pendingCompClaim?.type === "ld" ? "💣 Claim LD" : "⛳ Claim NTP";
+  const pendingClaimCopy =
+    pendingCompClaim?.type === "ld"
+      ? "Confirm this only if the big dog absolutely sent it and everyone on the tee agrees it was a proper Longest Drive."
+      : "Confirm this only if it really is stone-dead by the pin — if it is miles away, that is tiny-pecker optimism, not NTP.";
+
   return (
     <div>
       <button onClick={onBack} style={S.backBtn}>
         ← Back
       </button>
+
+      {/* Competition Claim Popup */}
+      {pendingCompClaim && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(15,23,42,0.55)",
+            zIndex: 220,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setPendingCompClaim(null)}
+        >
+          <div
+            style={{
+              background: "#fff",
+              borderRadius: 18,
+              padding: "22px 20px",
+              maxWidth: 380,
+              width: "100%",
+              boxShadow: "0 20px 60px rgba(15,23,42,0.28)",
+              border: `1px solid ${pendingCompClaim.type === "ld" ? "#fdba74" : "#86efac"}`,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 800,
+                color: pendingCompClaim.type === "ld" ? "#c2410c" : "#15803d",
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+                marginBottom: 8,
+              }}
+            >
+              {pendingClaimBadge}
+            </div>
+            <div
+              style={{
+                fontSize: 18,
+                fontWeight: 800,
+                color: "#0f172a",
+                marginBottom: 8,
+              }}
+            >
+              Confirm {pendingClaimLabel} for {pendingClaimPlayer?.short || "this player"}?
+            </div>
+            <p
+              style={{
+                fontSize: 13,
+                lineHeight: 1.55,
+                color: "#475569",
+                margin: "0 0 10px",
+              }}
+            >
+              Hole {pendingCompClaim.hole}. {pendingClaimCopy}
+            </p>
+            <p
+              style={{
+                fontSize: 12,
+                lineHeight: 1.5,
+                color: "#64748b",
+                margin: "0 0 16px",
+              }}
+            >
+              Quick vibe check: only tap confirm when the shot actually deserves the bragging rights.
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() =>
+                  confirmCompClaim({
+                    type: pendingCompClaim.type,
+                    key: pendingCompClaim.key,
+                    playerId: pendingCompClaim.playerId,
+                    hole: pendingCompClaim.hole,
+                  })
+                }
+                style={{
+                  flex: 1,
+                  padding: "11px 12px",
+                  borderRadius: 10,
+                  border: "none",
+                  background: pendingCompClaim.type === "ld" ? "#ea580c" : "#16a34a",
+                  color: "#fff",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                Yep, confirm it
+              </button>
+              <button
+                onClick={() => setPendingCompClaim(null)}
+                style={{
+                  flex: 1,
+                  padding: "11px 12px",
+                  borderRadius: 10,
+                  border: "1px solid #cbd5e1",
+                  background: "#fff",
+                  color: "#334155",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Hole Info Popup */}
       {showHoleInfo !== null && (
@@ -5842,32 +5997,25 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                   {(isNtp || isLd) && canEdit && (
                     <button
                       onClick={() => {
-                        upd((s) => {
-                          if (isNtp) {
-                            if (!s.ntpWinners) s.ntpWinners = {};
-                            const next =
-                              s.ntpWinners[ntpKey] === playerId
-                                ? null
-                                : playerId;
-                            s.ntpWinners[ntpKey] = next;
-                            if (next === playerId)
-                              maybePushCompClaimSledge(s, {
-                                roundId,
-                                playerId,
-                                type: "ntp",
-                              });
-                          } else {
-                            if (!s.ldWinners) s.ldWinners = {};
-                            const next =
-                              s.ldWinners[ldKey] === playerId ? null : playerId;
-                            s.ldWinners[ldKey] = next;
-                            if (next === playerId)
-                              maybePushCompClaimSledge(s, {
-                                roundId,
-                                playerId,
-                                type: "ld",
-                              });
-                          }
+                        const claimType = isNtp ? "ntp" : "ld";
+                        const claimKey = isNtp ? ntpKey : ldKey;
+                        const isCurrentWinner = isNtp ? isNtpW : isLdW;
+
+                        if (isCurrentWinner) {
+                          confirmCompClaim({
+                            type: claimType,
+                            key: claimKey,
+                            playerId,
+                            hole: hole.n,
+                          });
+                          return;
+                        }
+
+                        setPendingCompClaim({
+                          type: claimType,
+                          key: claimKey,
+                          playerId,
+                          hole: hole.n,
                         });
                       }}
                       style={{
