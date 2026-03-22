@@ -2895,7 +2895,6 @@ function App() {
           sub.id === "matches" && (
             <MatchSchedule
               state={state}
-              live={live}
               isAdmin={isAdmin}
               onBack={() => setSub(null)}
             />
@@ -7047,9 +7046,7 @@ function ScheduleMenu({ onSelect }) {
 }
 
 // ─── Match Schedule ──────────────────────────────────────────
-function MatchSchedule({ state, live, isAdmin, onBack }) {
-  const showPlayerNames = live || isAdmin;
-
+function MatchSchedule({ state, isAdmin, onBack }) {
   return (
     <div>
       <button onClick={onBack} style={S.backBtn}>
@@ -7058,6 +7055,7 @@ function MatchSchedule({ state, live, isAdmin, onBack }) {
       <h2 style={S.sectTitle}>Match Schedule & Draw</h2>
       {ROUNDS.map((round) => {
         const course = getCourse(round.courseId);
+        const showPlayerNames = isAdmin || isRoundScoringLive(state, round.id);
         return (
           <div
             key={round.id}
