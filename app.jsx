@@ -716,7 +716,7 @@ const PK_ROOMS = [
   { room: "2", players: ["Chris Green", "Cam Clark"] },
   { room: "3", players: ["Nick Tankard", "James Turner"] },
   { room: "4", players: ["Alex Denning", "Lach Taylor"] },
-  { room: "5", players: ["Jason McIlwaine", "Callum Hinwood"] },
+  { room: "5 (Remote Room)", players: ["Jason McIlwaine", "Callum Hinwood"] },
   { room: "6", players: ["James Kelly", "Angus Scott"] },
 ];
 
