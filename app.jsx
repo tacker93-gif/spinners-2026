@@ -2518,6 +2518,68 @@ function buildManualRoundSummary(state, roundId, content) {
   };
 }
 
+function buildSummaryShareCard(state, roundId) {
+  const round = ROUNDS.find((r) => r.id === roundId);
+  if (!round) return null;
+  const leaderboard = getRoundLeaderboard(state, round);
+  const leader = leaderboard[0];
+  const ntpWinnerId = state.ntpWinners?.[`${round.id}_ntp`];
+  const ldWinnerId = state.ldWinners?.[`${round.id}_ld`];
+  const summary = state.dailySummaries?.[round.id] || null;
+  const preview = (summary?.content || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 180);
+  return {
+    roundId,
+    title: `Round ${round.num} Recap Card`,
+    body: [
+      `🏆 ${round.courseName} · Round ${round.num}`,
+      leader
+        ? `Leader: ${leader.name} (${leader.score} pts${leader.holes < 18 ? ` through ${leader.holes}` : ""})`
+        : "Leader: TBD",
+      `📍 NTP: ${ntpWinnerId ? getP(ntpWinnerId)?.name : "TBD"}`,
+      `💪 LD: ${ldWinnerId ? getP(ldWinnerId)?.name : "TBD"}`,
+      preview ? `📝 ${preview}${summary?.content?.length > preview.length ? "…" : ""}` : "",
+      "#SpinnersCup2026",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+function buildLiveTimelineItems(state) {
+  const sledgeItems = pruneExpiredSledges(state?.sledgeFeed || []).map((item) => ({
+    ...item,
+    type: "sledge",
+    feedKey: item.id,
+  }));
+  const summaryItems = Object.values(state?.dailySummaries || {}).map((summary) => ({
+    id: `summary_${summary.roundId}`,
+    type: "summary",
+    feedKey: `summary_${summary.roundId}`,
+    roundId: summary.roundId,
+    title: summary.title,
+    message: summary.content,
+    at: summary.releasedAt,
+    source: summary.source || "admin",
+  }));
+  return [...sledgeItems, ...summaryItems].sort(
+    (a, b) => new Date(b.at || 0) - new Date(a.at || 0),
+  );
+}
+
+async function shareOrCopyText(title, text) {
+  if (!text) return false;
+  try {
+    if (navigator?.share) {
+      await navigator.share({ title, text });
+      return true;
+    }
+  } catch {}
+  return copyText(text);
+}
+
 async function copyText(text) {
   if (!text) return false;
   try {
@@ -3168,10 +3230,10 @@ function PlayerSelect({
   onSpectator,
   onAdmin,
 }) {
-  const [showA, setShowA] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(lockedPlayerId ? "player" : "");
+  const [showAdminEntry, setShowAdminEntry] = useState(false);
   const [code, setCode] = useState("");
   const [err, setErr] = useState(false);
-  const [unlockReady, setUnlockReady] = useState(false);
   const live = !!state?.eventLive;
   const playerOrder = [
     "chris",
@@ -3188,19 +3250,37 @@ function PlayerSelect({
     "jkelly",
   ];
   const displayPlayers = playerOrder.map((id) => getP(id)).filter(Boolean);
-  const [selectedPlayerId, setSelectedPlayerId] = useState(
-    lockedPlayerId || "",
-  );
-  const verifyAdminCode = () => {
-    if (ADMIN_CODE && code.trim() === ADMIN_CODE) {
-      setErr(false);
-      setUnlockReady(true);
-      return true;
-    }
-    setUnlockReady(false);
-    setErr(true);
-    return false;
-  };
+  const [selectedPlayerId, setSelectedPlayerId] = useState(lockedPlayerId || "");
+
+  const roleCards = [
+    {
+      key: "player",
+      emoji: "🏌️",
+      title: "I’m Playing",
+      hint: lockedPlayerId
+        ? "This device is already linked to a player profile."
+        : "Lock this phone to your scorecard, predictions, and player view.",
+      tone: "#ecfdf5",
+      border: "#86efac",
+    },
+    {
+      key: "spectator",
+      emoji: "👀",
+      title: "I’m Watching",
+      hint: "Jump straight into live matches, leaders, and the timeline.",
+      tone: "#eff6ff",
+      border: "#93c5fd",
+    },
+    {
+      key: "admin",
+      emoji: "🔒",
+      title: "I’m Admin",
+      hint: "Open scoring controls, launches, and event setup tools.",
+      tone: "#faf5ff",
+      border: "#d8b4fe",
+    },
+  ];
+
   return (
     <div
       style={{
@@ -3213,14 +3293,14 @@ function PlayerSelect({
       <div
         style={{
           padding: "48px 20px 32px",
-          maxWidth: 400,
+          maxWidth: 420,
           margin: "0 auto",
           flex: 1,
           width: "100%",
           boxSizing: "border-box",
         }}
       >
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
           <img
             src={LOGO}
             alt="Spinners Cup"
@@ -3249,72 +3329,218 @@ function PlayerSelect({
             Mornington Peninsula · March 27–29
           </p>
         </div>
-        <p
-          style={{
-            fontSize: 13,
-            color: "#64748b",
-            marginBottom: 12,
-            textAlign: "center",
-          }}
-        >
-          {lockedPlayerId
-            ? "This phone is locked to one player."
-            : "Choose your role or select your name:"}
-        </p>
+
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 8,
-            marginBottom: 6,
+            ...S.card,
+            background: live ? "#eff6ff" : "#f8fafc",
+            border: `1px solid ${live ? "#bfdbfe" : "#dbeafe"}`,
+            marginBottom: 16,
           }}
         >
-          {!showA ? (
-            <button
-              onClick={() => setShowA(true)}
-              aria-label="Open admin login"
+          <div
+            style={{
+              fontSize: 11,
+              fontWeight: 800,
+              textTransform: "uppercase",
+              letterSpacing: 0.8,
+              color: live ? "#1d4ed8" : "#475569",
+              marginBottom: 6,
+            }}
+          >
+            Start here
+          </div>
+          <div
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: "#0f172a",
+              fontFamily: "'Playfair Display',serif",
+              marginBottom: 6,
+            }}
+          >
+            Pick how you’re joining the weekend.
+          </div>
+          <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.55 }}>
+            Players can lock this device to one scorecard for the trip. Spectators
+            can browse freely. Admin access unlocks controls and can reassign a
+            locked device later.
+          </div>
+        </div>
+
+        {lockedPlayerId && (
+          <div
+            style={{
+              ...S.card,
+              background: "#fff7ed",
+              border: "1px solid #fdba74",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#9a3412" }}>
+              This phone is currently locked to {getP(lockedPlayerId)?.name || "Unknown"}.
+            </div>
+            <div style={{ fontSize: 12, color: "#9a3412", marginTop: 6, lineHeight: 1.5 }}>
+              You can keep playing from this profile, or use admin access below to
+              unlock and reassign the device.
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "grid", gap: 10, marginBottom: 18 }}>
+          {roleCards.map((card) => {
+            const active = selectedRole === card.key;
+            return (
+              <button
+                key={card.key}
+                onClick={() => {
+                  setSelectedRole(card.key);
+                  setErr(false);
+                  if (card.key === "spectator") onSpectator();
+                  if (card.key !== "admin") setShowAdminEntry(false);
+                  if (card.key === "admin") setShowAdminEntry(true);
+                }}
+                style={{
+                  ...S.card,
+                  marginBottom: 0,
+                  textAlign: "left",
+                  background: active ? card.tone : "#fff",
+                  border: `1px solid ${active ? card.border : "#e2e8f0"}`,
+                  boxShadow: active
+                    ? "0 12px 28px rgba(15,23,42,0.08)"
+                    : "0 1px 2px rgba(15,23,42,0.04)",
+                  cursor: "pointer",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ fontSize: 28 }}>{card.emoji}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 15, fontWeight: 800, color: "#0f172a" }}>
+                      {card.title}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4, lineHeight: 1.45 }}>
+                      {card.hint}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 18, color: active ? "#0f172a" : "#cbd5e1" }}>
+                    {active ? "✓" : "→"}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {(selectedRole === "player" || lockedPlayerId) && (
+          <div
+            style={{
+              ...S.card,
+              background: "#ffffff",
+              border: "1px solid #d4e5d4",
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#2d6a4f", marginBottom: 6 }}>
+              Player setup
+            </div>
+            <div style={{ fontSize: 12, color: "#64748b", marginBottom: 12, lineHeight: 1.5 }}>
+              Choose your player profile to open your scoring, match view, and round predictions.
+            </div>
+            <select
+              value={selectedPlayerId}
+              disabled={!!lockedPlayerId}
+              onChange={(e) => setSelectedPlayerId(e.target.value)}
               style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 6,
-                background: "none",
-                border: "1px solid #d1d5db",
-                borderRadius: 10,
-                padding: "10px 16px",
-                color: "#64748b",
-                fontSize: 13,
-                fontWeight: 700,
-                cursor: "pointer",
-                fontFamily: "'DM Sans',sans-serif",
-                minHeight: 44,
+                ...S.input,
+                marginBottom: 10,
+                cursor: lockedPlayerId ? "not-allowed" : "pointer",
+                opacity: lockedPlayerId ? 0.7 : 1,
               }}
             >
-              🔒 Admin
+              <option value="">Select your name</option>
+              {displayPlayers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => selectedPlayerId && onSelect(selectedPlayerId)}
+              disabled={
+                !selectedPlayerId ||
+                (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
+              }
+              style={{
+                width: "100%",
+                padding: "11px 16px",
+                borderRadius: 10,
+                border: "none",
+                background: "#2d6a4f",
+                color: "#fff",
+                fontWeight: 700,
+                cursor:
+                  !selectedPlayerId ||
+                  (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
+                    ? "not-allowed"
+                    : "pointer",
+                fontSize: 14,
+                minHeight: 44,
+                opacity:
+                  !selectedPlayerId ||
+                  (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
+                    ? 0.55
+                    : 1,
+              }}
+            >
+              Open Player View
             </button>
-          ) : (
-            <div style={{ display: "flex", gap: 8, gridColumn: "span 2" }}>
+            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 10, lineHeight: 1.5 }}>
+              {lockedPlayerId
+                ? "Admin can unlock this device later if you need to switch players."
+                : "Your selection locks this phone to one player until an admin unlocks it."}
+            </div>
+          </div>
+        )}
+
+        {showAdminEntry && (
+          <div
+            style={{
+              ...S.card,
+              background: "#faf5ff",
+              border: "1px solid #d8b4fe",
+              marginBottom: 10,
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 800, color: "#7c3aed", marginBottom: 6 }}>
+              Admin access
+            </div>
+            <div style={{ fontSize: 12, color: "#6d28d9", marginBottom: 12, lineHeight: 1.5 }}>
+              Enter the admin code to manage scoring, publish recap cards, or unlock this device.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
               <input
                 value={code}
                 onChange={(e) => {
                   setCode(e.target.value);
                   setErr(false);
-                  setUnlockReady(false);
                 }}
-                placeholder={
-                  lockedPlayerId ? "Password required to unlock" : "Admin code"
-                }
+                placeholder={lockedPlayerId ? "Admin code to unlock or continue" : "Admin code"}
                 style={{ ...S.input, flex: 1, marginBottom: 0 }}
               />
               <button
                 onClick={() => {
-                  if (verifyAdminCode()) onAdmin(code);
+                  if (ADMIN_CODE && code.trim() === ADMIN_CODE) {
+                    setErr(false);
+                    onAdmin(code);
+                    return;
+                  }
+                  setErr(true);
                 }}
                 style={{
                   padding: "10px 16px",
                   borderRadius: 10,
                   border: "none",
-                  background: "#2d6a4f",
+                  background: "#7c3aed",
                   color: "#fff",
                   fontWeight: 700,
                   cursor: "pointer",
@@ -3322,166 +3548,50 @@ function PlayerSelect({
                   minHeight: 44,
                 }}
               >
-                Go
+                Enter
               </button>
             </div>
-          )}
-          <button
-            onClick={onSpectator}
-            aria-label="Open spectator mode"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 6,
-              border: "1px solid #d1d5db",
-              borderRadius: 10,
-              padding: "10px 16px",
-              background: "#fff",
-              color: "#334155",
-              fontSize: 13,
-              fontWeight: 700,
-              cursor: "pointer",
-              fontFamily: "'DM Sans',sans-serif",
-              minHeight: 44,
-            }}
-          >
-            👀 Spectator
-          </button>
-        </div>
-        <p
-          style={{
-            fontSize: 11,
-            color: "#94a3b8",
-            marginBottom: 12,
-            textAlign: "center",
-          }}
-        >
-          Players: select your name then submit · Spectators: use spectator
-          mode.
-        </p>
-        <div style={{ marginBottom: 20 }}>
-          <select
-            value={selectedPlayerId}
-            disabled={!!lockedPlayerId}
-            onChange={(e) => setSelectedPlayerId(e.target.value)}
-            style={{
-              ...S.input,
-              marginBottom: 10,
-              cursor: lockedPlayerId ? "not-allowed" : "pointer",
-              opacity: lockedPlayerId ? 0.7 : 1,
-            }}
-          >
-            <option value="">Select your name</option>
-            {displayPlayers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => selectedPlayerId && onSelect(selectedPlayerId)}
-            disabled={
-              !selectedPlayerId ||
-              (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
-            }
-            style={{
-              width: "100%",
-              padding: "11px 16px",
-              borderRadius: 10,
-              border: "none",
-              background: "#2d6a4f",
-              color: "#fff",
-              fontWeight: 700,
-              cursor:
-                !selectedPlayerId ||
-                (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
-                  ? "not-allowed"
-                  : "pointer",
-              fontSize: 14,
-              minHeight: 44,
-              opacity:
-                !selectedPlayerId ||
-                (!!lockedPlayerId && lockedPlayerId !== selectedPlayerId)
-                  ? 0.55
-                  : 1,
-            }}
-          >
-            Submit
-          </button>
-        </div>
-        {lockedPlayerId && (
-          <p
-            style={{
-              fontSize: 11,
-              color: "#94a3b8",
-              marginTop: -8,
-              textAlign: "center",
-            }}
-          >
-            Locked player: {getP(lockedPlayerId)?.name || "Unknown"}
-          </p>
-        )}
-        {lockedPlayerId && showA && (
-          <button
-            onClick={() => {
-              if (code.trim() === "admin2026") {
-                setErr(false);
-                setUnlockReady(true);
-                onUnlockSelection();
-              } else {
-                setUnlockReady(false);
-                setErr(true);
-              }
-            }}
-            disabled={!code.trim()}
-            style={{
-              display: "block",
-              margin: "0 auto 8px",
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "1px solid #fca5a5",
-              background: unlockReady ? "#fff" : "#fff5f5",
-              color: "#dc2626",
-              fontSize: 12,
-              fontWeight: 600,
-              cursor: !code.trim() ? "not-allowed" : "pointer",
-              opacity: !code.trim() ? 0.55 : 1,
-              fontFamily: "'DM Sans',sans-serif",
-            }}
-          >
-            🔓 Unlock player selection
-          </button>
-        )}
-        {showA && lockedPlayerId && (
-          <p
-            style={{
-              fontSize: 11,
-              color: "#94a3b8",
-              marginTop: -2,
-              marginBottom: 8,
-              textAlign: "center",
-            }}
-          >
-            Enter <strong>admin2026</strong> to unlock this device from its
-            current player.
-          </p>
-        )}
-        {err && (
-          <p
-            style={{
-              color: "#dc2626",
-              fontSize: 12,
-              marginTop: 4,
-              textAlign: "center",
-            }}
-          >
-            {lockedPlayerId
-              ? "Unlock password must be admin2026"
-              : ADMIN_CODE
-                ? "Incorrect code"
-                : "Admin code not configured"}
-          </p>
+            {lockedPlayerId && (
+              <button
+                onClick={() => {
+                  if (code.trim() === ADMIN_CODE) {
+                    setErr(false);
+                    onUnlockSelection();
+                    setSelectedPlayerId("");
+                    return;
+                  }
+                  setErr(true);
+                }}
+                disabled={!code.trim()}
+                style={{
+                  marginTop: 10,
+                  padding: "8px 12px",
+                  borderRadius: 8,
+                  border: "1px solid #c4b5fd",
+                  background: "#fff",
+                  color: "#6d28d9",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: !code.trim() ? "not-allowed" : "pointer",
+                  opacity: !code.trim() ? 0.55 : 1,
+                }}
+              >
+                Unlock player selection
+              </button>
+            )}
+            {err && (
+              <p
+                style={{
+                  color: "#dc2626",
+                  fontSize: 12,
+                  marginTop: 10,
+                  textAlign: "left",
+                }}
+              >
+                {ADMIN_CODE ? "Incorrect admin code" : "Admin code not configured"}
+              </p>
+            )}
+          </div>
         )}
       </div>
       <SponsorFooter />
@@ -3570,7 +3680,7 @@ function NavBar({ tab, isSpectator, onTab }) {
   const items = isSpectator
     ? [
         { k: "cup", l: "Cup", e: "🏆" },
-        { k: "sledge", l: "Sledges", e: "📣" },
+        { k: "sledge", l: "Live", e: "📣" },
         { k: "leaders", l: "Leaders", e: "📊" },
         { k: "schedule", l: "Info", e: "📋" },
         { k: "players", l: "Players", e: "👥" },
@@ -3578,7 +3688,7 @@ function NavBar({ tab, isSpectator, onTab }) {
     : [
         { k: "cup", l: "Cup", e: "🏆" },
         { k: "scores", l: "Scores", e: "⛳" },
-        { k: "sledge", l: "Sledges", e: "📣" },
+        { k: "sledge", l: "Live", e: "📣" },
         { k: "leaders", l: "Leaders", e: "📊" },
         { k: "schedule", l: "Info", e: "📋" },
         { k: "players", l: "Players", e: "👥" },
@@ -4561,6 +4671,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
 function SledgeFeedPage({ state, cur, live }) {
   const activeViewer =
     cur && cur !== "admin" && cur !== "spectator" ? cur : null;
+  const [filter, setFilter] = useState("all");
   const [localSledgeReads, setLocalSledgeReads] = useState(() =>
     readLocalSledgeReads(activeViewer),
   );
@@ -4576,9 +4687,12 @@ function SledgeFeedPage({ state, cur, live }) {
     return () => window.removeEventListener("storage", syncReads);
   }, [activeViewer]);
 
-  const items = pruneExpiredSledges(state.sledgeFeed || []);
-  const unreadItems = items.filter(
-    (item) => !activeViewer || !localSledgeReads?.[item.id],
+  const items = buildLiveTimelineItems(state);
+  const filteredItems = items.filter((item) =>
+    filter === "all" ? true : item.type === filter,
+  );
+  const unreadItems = filteredItems.filter(
+    (item) => item.type === "sledge" && (!activeViewer || !localSledgeReads?.[item.id]),
   );
 
   useEffect(() => {
@@ -4590,192 +4704,193 @@ function SledgeFeedPage({ state, cur, live }) {
     if (nextReads) setLocalSledgeReads(nextReads);
   }, [activeViewer, unreadItems]);
 
+  const filterOptions = [
+    { key: "all", label: "All activity" },
+    { key: "sledge", label: "Banter" },
+    { key: "summary", label: "Summaries" },
+  ];
+
   return (
     <div>
-      <h2 style={S.sectTitle}>Sledge Feed</h2>
+      <h2 style={S.sectTitle}>Live Timeline</h2>
       <div
         style={{
           ...S.card,
-          background: "linear-gradient(135deg,#fff7ed,#ffedd5)",
-          border: "1px solid #fdba74",
+          background: "linear-gradient(135deg,#fff7ed,#eef6ff)",
+          border: "1px solid #cbd5e1",
         }}
       >
         <div
           style={{
             fontSize: 11,
             fontWeight: 800,
-            color: "#9a3412",
+            color: "#475569",
             textTransform: "uppercase",
             letterSpacing: 1,
             marginBottom: 6,
           }}
         >
-          Catalyst-driven chaos
+          Matchday pulse
         </div>
         <div
           style={{
             fontFamily: "'Playfair Display',serif",
             fontSize: 22,
             fontWeight: 800,
-            color: "#7c2d12",
+            color: "#0f172a",
             marginBottom: 6,
           }}
         >
-          Live banter now has its own locker room.
+          Live banter, recap drops, and round moments in one feed.
         </div>
-        <div style={{ fontSize: 13, color: "#9a3412", lineHeight: 1.5 }}>
-          The feed still runs on the current sledge catalysts — big points,
-          wipes, double wipes, Chulligans, NTP claims, and Longest Drive bombs —
-          but now every chirp lives in one dedicated section.
+        <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.5 }}>
+          Follow the weekend as it unfolds: auto-fired sledges, released round summaries,
+          and the loudest moments worth sending straight into the group chat.
         </div>
       </div>
 
       {!live ? (
         <LockedPage
-          title="Sledge Feed"
-          msg="The banter cannon opens when the event goes live. Until then, the group chat can remain just barely civil."
+          title="Live Timeline"
+          msg="The live feed opens when the event goes live. Until then, the weekend remains suspiciously calm."
           icon="📣"
         />
-      ) : items.length === 0 ? (
-        <div
-          style={{
-            ...S.card,
-            borderStyle: "dashed",
-            background: "#fff7ed",
-            textAlign: "center",
-          }}
-        >
-          <div style={{ fontSize: 34, marginBottom: 8 }}>🤐</div>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#7c2d12",
-              marginBottom: 4,
-            }}
-          >
-            No sledges yet
-          </div>
-          <div style={{ fontSize: 12, color: "#9a3412", lineHeight: 1.5 }}>
-            Once someone starts making too many points, wipes a hole, or deploys
-            a Chulligan, the chirps will land here automatically.
-          </div>
-        </div>
       ) : (
-        <div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 10,
-              gap: 12,
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#9a3412" }}>
-              {items.length} sledges from the last hour
-            </div>
-            <div style={{ fontSize: 11, color: "#b45309" }}>
-              Scroll for the full feed
-            </div>
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
+            {filterOptions.map((option) => (
+              <button
+                key={option.key}
+                onClick={() => setFilter(option.key)}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  border: `1px solid ${filter === option.key ? "#fdba74" : "#cbd5e1"}`,
+                  background: filter === option.key ? "#fff7ed" : "#fff",
+                  color: filter === option.key ? "#9a3412" : "#475569",
+                  fontSize: 12,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: 10,
-              maxHeight: "calc(100vh - 320px)",
-              overflowY: "auto",
-              paddingRight: 4,
-              overscrollBehavior: "contain",
-            }}
-          >
-            {items.map((item, idx) => {
-              const isUnread = !!activeViewer && !localSledgeReads?.[item.id];
-              return (
-                <div
-                  key={item.id}
-                  style={{
-                    ...S.card,
-                    marginBottom: 0,
-                    border: `1px solid ${isUnread ? "#fdba74" : "#e2e8f0"}`,
-                    background: isUnread ? "#fff7ed" : "#fff",
-                  }}
-                >
+
+          {filteredItems.length === 0 ? (
+            <div
+              style={{
+                ...S.card,
+                borderStyle: "dashed",
+                background: "#fff7ed",
+                textAlign: "center",
+              }}
+            >
+              <div style={{ fontSize: 34, marginBottom: 8 }}>🕰️</div>
+              <div
+                style={{
+                  fontSize: 14,
+                  fontWeight: 700,
+                  color: "#7c2d12",
+                  marginBottom: 4,
+                }}
+              >
+                Nothing in this lane just yet
+              </div>
+              <div style={{ fontSize: 12, color: "#9a3412", lineHeight: 1.5 }}>
+                Once the banter starts or a recap gets released, it will land here instantly.
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {filteredItems.map((item, idx) => {
+                const isSummary = item.type === "summary";
+                const isUnread =
+                  item.type === "sledge" && !!activeViewer && !localSledgeReads?.[item.id];
+                const round = item.roundId
+                  ? ROUNDS.find((entry) => entry.id === item.roundId)
+                  : null;
+                return (
                   <div
+                    key={item.feedKey}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 8,
-                      marginBottom: 6,
+                      ...S.card,
+                      marginBottom: 0,
+                      border: `1px solid ${
+                        isSummary ? "#bfdbfe" : isUnread ? "#fdba74" : "#e2e8f0"
+                      }`,
+                      background: isSummary ? "#f8fbff" : isUnread ? "#fff7ed" : "#fff",
                     }}
                   >
                     <div
                       style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: "#9a3412",
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 8,
+                        marginBottom: 8,
                       }}
                     >
-                      Sledge #{items.length - idx}
-                    </div>
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      {item.roundId && (
-                        <span
-                          style={{
-                            fontSize: 10,
-                            fontWeight: 700,
-                            color: "#b45309",
-                            background: "#ffedd5",
-                            padding: "4px 8px",
-                            borderRadius: 999,
-                          }}
-                        >
-                          Round {String(item.roundId).replace("r", "")}
-                        </span>
-                      )}
-                      {isUnread && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <span
                           style={{
                             fontSize: 10,
                             fontWeight: 800,
-                            color: "#fff",
-                            background: "#ea580c",
+                            color: isSummary ? "#1d4ed8" : "#9a3412",
+                            background: isSummary ? "#dbeafe" : "#ffedd5",
                             padding: "4px 8px",
                             borderRadius: 999,
+                            textTransform: "uppercase",
+                            letterSpacing: 0.7,
                           }}
                         >
-                          NEW
+                          {isSummary ? "Recap drop" : `Banter #${filteredItems.length - idx}`}
                         </span>
-                      )}
+                        {round && (
+                          <span style={{ fontSize: 10, color: "#64748b", fontWeight: 700 }}>
+                            Round {round.num} · {round.courseName}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 10, color: "#94a3b8" }}>
+                        {new Date(item.at || Date.now()).toLocaleTimeString([], {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     </div>
-                  </div>
-                  <div
-                    style={{ fontSize: 13, color: "#7c2d12", lineHeight: 1.55 }}
-                  >
-                    {item.message}
-                  </div>
-                  {item.hole && (
                     <div
-                      style={{ fontSize: 11, color: "#b45309", marginTop: 8 }}
+                      style={{
+                        fontSize: isSummary ? 16 : 14,
+                        fontWeight: isSummary ? 800 : 700,
+                        color: "#0f172a",
+                        marginBottom: 6,
+                        fontFamily: isSummary ? "'Playfair Display',serif" : "'DM Sans',sans-serif",
+                      }}
                     >
-                      Hole {item.hole}
+                      {isSummary ? item.title : item.message}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                    {isSummary ? (
+                      <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                        {item.message}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: 13, color: "#7c2d12", lineHeight: 1.55 }}>
+                        {item.message}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-// ─── Scores List ─────────────────────────────────────────────
 function ScoresList({ state, cur, isAdmin, onSelect }) {
   return (
     <div>
@@ -7744,7 +7859,7 @@ function DailySummaryModal({ summary, onClose }) {
           }}
         >
           <div style={{ fontSize: 11, color: "#94a3b8" }}>
-            Find this again later in Info → Weekend Banter Summary.
+            Find this again later in Info → Weekend Banter Summary, or in the Live Timeline.
           </div>
           <button
             onClick={onClose}
@@ -7767,6 +7882,7 @@ function DailySummaryModal({ summary, onClose }) {
 }
 
 function SummaryHubPage({ state, cur, onBack }) {
+  const [shareStatus, setShareStatus] = useState({});
   const summaries = Object.values(state.dailySummaries || {}).sort(
     (a, b) => new Date(b.releasedAt || 0) - new Date(a.releasedAt || 0),
   );
@@ -7782,63 +7898,132 @@ function SummaryHubPage({ state, cur, onBack }) {
           round is ready.
         </div>
       )}
-      {summaries.map((s) => (
-        <div
-          key={s.roundId}
-          style={{
-            ...S.card,
-            borderLeft: "3px solid #2563eb",
-            background: "#f8fbff",
-          }}
-        >
+      {summaries.map((s) => {
+        const shareCard = buildSummaryShareCard(state, s.roundId);
+        const status = shareStatus[s.roundId] || "";
+        return (
           <div
+            key={s.roundId}
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 6,
+              ...S.card,
+              borderLeft: "3px solid #2563eb",
+              background: "#f8fbff",
             }}
           >
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
-              {s.title}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: 8,
+                marginBottom: 6,
+              }}
+            >
+              <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a" }}>
+                {s.title}
+              </div>
+              <div
+                style={{
+                  fontSize: 10,
+                  color: "#64748b",
+                  textTransform: "uppercase",
+                  fontWeight: 700,
+                }}
+              >
+                {s.source === "admin" ? "Admin" : "Manual"}
+              </div>
             </div>
             <div
               style={{
-                fontSize: 10,
-                color: "#64748b",
-                textTransform: "uppercase",
-                fontWeight: 700,
+                fontSize: 13,
+                color: "#475569",
+                lineHeight: 1.65,
+                whiteSpace: "pre-wrap",
               }}
             >
-              {s.source === "admin" ? "Admin" : "Manual"}
+              {s.content}
             </div>
+            {shareCard && (
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: "12px",
+                  borderRadius: 12,
+                  background: "#fff",
+                  border: "1px solid #bfdbfe",
+                }}
+              >
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#1d4ed8", marginBottom: 4 }}>
+                  Shareable recap card
+                </div>
+                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                  {shareCard.body}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+                  <button
+                    onClick={async () => {
+                      const ok = await shareOrCopyText(shareCard.title, shareCard.body);
+                      setShareStatus((prev) => ({
+                        ...prev,
+                        [s.roundId]: ok ? "Recap card shared or copied." : "Sharing failed on this device.",
+                      }));
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "none",
+                      background: "#2563eb",
+                      color: "#fff",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Share Recap Card
+                  </button>
+                  <button
+                    onClick={async () => {
+                      const ok = await copyText(shareCard.body);
+                      setShareStatus((prev) => ({
+                        ...prev,
+                        [s.roundId]: ok ? "Recap text copied." : "Copy failed on this device.",
+                      }));
+                    }}
+                    style={{
+                      padding: "8px 12px",
+                      borderRadius: 8,
+                      border: "1px solid #93c5fd",
+                      background: "#fff",
+                      color: "#1d4ed8",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Copy Card Text
+                  </button>
+                </div>
+                {!!status && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#1d4ed8" }}>{status}</div>
+                )}
+              </div>
+            )}
+            {cur && cur !== "admin" && cur !== "spectator" && (
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 11,
+                  color: state.summaryReads?.[cur]?.[s.roundId]
+                    ? "#16a34a"
+                    : "#94a3b8",
+                }}
+              >
+                {state.summaryReads?.[cur]?.[s.roundId] ? "✓ Read" : "Unread"}
+              </div>
+            )}
           </div>
-          <div
-            style={{
-              fontSize: 13,
-              color: "#475569",
-              lineHeight: 1.65,
-              whiteSpace: "pre-wrap",
-            }}
-          >
-            {s.content}
-          </div>
-          {cur && cur !== "admin" && cur !== "spectator" && (
-            <div
-              style={{
-                marginTop: 8,
-                fontSize: 11,
-                color: state.summaryReads?.[cur]?.[s.roundId]
-                  ? "#16a34a"
-                  : "#94a3b8",
-              }}
-            >
-              {state.summaryReads?.[cur]?.[s.roundId] ? "✓ Read" : "Unread"}
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
@@ -8214,6 +8399,7 @@ function PlayersPage({ state, upd, isAdmin, live }) {
             const draft = state.dailySummaryDrafts?.[round.id] || "";
             const status = summaryStatus[round.id] || "";
             const exportText = formatRoundSummaryExport(state, round.id);
+            const shareCard = buildSummaryShareCard(state, round.id);
             return (
               <div
                 key={`summary_${round.id}`}
@@ -8223,6 +8409,24 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                   borderBottom: "1px dashed #bfdbfe",
                 }}
               >
+                {shareCard && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: "10px 12px",
+                      borderRadius: 10,
+                      background: "#fff",
+                      border: "1px solid #bfdbfe",
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#1d4ed8", marginBottom: 4 }}>
+                      Recap card preview
+                    </div>
+                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                      {shareCard.body}
+                    </div>
+                  </div>
+                )}
                 <div
                   style={{
                     display: "flex",
@@ -8284,6 +8488,31 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                     >
                       Copy Scoresheet
                     </button>
+                    {shareCard && (
+                      <button
+                        onClick={async () => {
+                          const ok = await shareOrCopyText(shareCard.title, shareCard.body);
+                          setSummaryStatus((prev) => ({
+                            ...prev,
+                            [round.id]: ok
+                              ? "Recap card shared or copied."
+                              : "Sharing failed on this device.",
+                          }));
+                        }}
+                        style={{
+                          padding: "7px 12px",
+                          borderRadius: 8,
+                          border: "1px solid #bfdbfe",
+                          background: "#eff6ff",
+                          color: "#1d4ed8",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Share Recap Card
+                      </button>
+                    )}
                     <button
                       disabled={!draft.trim()}
                       onClick={() => {
