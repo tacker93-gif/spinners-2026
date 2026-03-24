@@ -473,18 +473,18 @@ const COURSES = [
 ];
 
 const PLAYERS = [
-  { id: "angus", name: "Angus Scott", short: "Angus", team: "blue" },
+  { id: "angus", name: "Angus Scott", short: "Angus", team: "grey" },
   { id: "nick", name: "Nick Tankard", short: "Nick", team: "blue" },
   { id: "tom", name: "Tom Crawford", short: "Tom", team: "blue" },
   { id: "callum", name: "Callum Hinwood", short: "Callum", team: "blue" },
-  { id: "jkelly", name: "James Kelly", short: "J. Kelly", team: "blue" },
-  { id: "jturner", name: "James Turner", short: "J. Turner", team: "blue" },
+  { id: "jkelly", name: "James Kelly", short: "J. Kelly", team: "grey" },
+  { id: "jturner", name: "James Turner", short: "J. Turner", team: "grey" },
   { id: "chris", name: "Jasper Taylor", short: "Jasper", team: "grey" },
   { id: "luke", name: "Luke Abi-Hanna", short: "Luke", team: "grey" },
-  { id: "alex", name: "Alex Denning", short: "Alex", team: "grey" },
-  { id: "lach", name: "Lach Taylor", short: "Lach", team: "grey" },
+  { id: "alex", name: "Alex Denning", short: "Alex", team: "blue" },
+  { id: "lach", name: "Lach Taylor", short: "Lach", team: "blue" },
   { id: "jason", name: "Jason McIlwaine", short: "Jason", team: "grey" },
-  { id: "cam", name: "Cam Clark", short: "Cam", team: "grey" },
+  { id: "cam", name: "Cam Clark", short: "Cam", team: "blue" },
 ];
 
 const PLAYER_BIOS = {
@@ -732,9 +732,9 @@ const ROUNDS = [
     courseName: "St Andrews Beach",
     teeTimes: ["11:39am", "11:48am", "11:57am"],
     matches: [
-      { id: "m1", blue: ["angus", "jturner"], grey: ["chris", "cam"] },
-      { id: "m2", blue: ["nick", "jkelly"], grey: ["jason", "lach"] },
-      { id: "m3", blue: ["tom", "callum"], grey: ["luke", "alex"] },
+      { id: "m1", blue: ["callum", "alex"], grey: ["jason", "jturner"] },
+      { id: "m2", blue: ["nick", "tom"], grey: ["angus", "luke"] },
+      { id: "m3", blue: ["cam", "lach"], grey: ["chris", "jkelly"] },
     ],
   },
   {
@@ -745,9 +745,9 @@ const ROUNDS = [
     courseName: "PK South Course",
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
-      { id: "m4", blue: ["angus", "nick"], grey: ["chris", "jason"] },
-      { id: "m5", blue: ["callum", "jkelly"], grey: ["luke", "lach"] },
-      { id: "m6", blue: ["tom", "jturner"], grey: ["alex", "cam"] },
+      { id: "m4", blue: ["tom", "cam"], grey: ["angus", "jturner"] },
+      { id: "m5", blue: ["nick", "alex"], grey: ["jason", "jkelly"] },
+      { id: "m6", blue: ["callum", "lach"], grey: ["luke", "chris"] },
     ],
   },
   {
@@ -758,9 +758,9 @@ const ROUNDS = [
     courseName: "PK North Course",
     teeTimes: ["8:27am", "8:35am", "8:43am"],
     matches: [
-      { id: "m7", blue: ["callum", "jturner"], grey: ["jason", "alex"] },
-      { id: "m8", blue: ["nick", "tom"], grey: ["chris", "lach"] },
-      { id: "m9", blue: ["angus", "jkelly"], grey: ["luke", "cam"] },
+      { id: "m7", blue: ["nick", "lach"], grey: ["luke", "jason"] },
+      { id: "m8", blue: ["alex", "cam"], grey: ["angus", "jkelly"] },
+      { id: "m9", blue: ["tom", "callum"], grey: ["jturner", "chris"] },
     ],
   },
 ];
