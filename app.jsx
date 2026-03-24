@@ -611,7 +611,7 @@ const PLAYER_BIO_IMAGES = {
   angus: "./Angus Scott.PNG",
   tom: "./Tom Crawford.png",
   cam: "./Cam Clark.PNG",
-  chris: "./Jasper Taylor.jpg",
+  chris: "./Jasper Taylor.PNG",
   nick: "./Nick Tankard.png",
   jason: "./Jason McIlwaine (2).png",
   jturner: "./James Turner.PNG",
