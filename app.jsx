@@ -364,18 +364,18 @@ function getTeamInitial(state, teamKey) {
 }
 
 const PLAYER_PHOTOS = {
-  angus: "./Angus Scott.png",
+  angus: "./Angus Scott.PNG",
   nick: "./Nick Tankard.png",
   tom: "./Tom Crawford.png",
   callum: "./Callum Hinwood 2.png",
-  jkelly: "./James Kelly (2).png",
-  jturner: "./James Turner.png",
+  jkelly: "./James Kelly (2).PNG",
+  jturner: "./James Turner.PNG",
   chris: "./Jasper Taylor.jpg",
   luke: "./Luke Abi-Hanna.png",
-  alex: "./Alex Denning.png",
-  lach: "./Lach Taylor (2).png",
+  alex: "./Alex Denning.PNG",
+  lach: "./Lach Taylor (2).PNG",
   jason: "./Jason McIlwaine (2).png",
-  cam: "./Cam Clark.png",
+  cam: "./Cam Clark.PNG",
 };
 
 // ─── Courses (multi-tee: w=white, b=blue/black) ─────────────
@@ -608,17 +608,17 @@ function getPlayerRoundPrediction(state, playerId, roundId) {
   return `${short}, ${roundSpecific} ${priorForm}`;
 }
 const PLAYER_BIO_IMAGES = {
-  angus: "./Angus Scott.png",
+  angus: "./Angus Scott.PNG",
   tom: "./Tom Crawford.png",
-  cam: "./Cam Clark.png",
+  cam: "./Cam Clark.PNG",
   chris: "./Jasper Taylor.jpg",
   nick: "./Nick Tankard.png",
   jason: "./Jason McIlwaine (2).png",
-  jturner: "./James Turner.png",
+  jturner: "./James Turner.PNG",
   callum: "./Callum Hinwood 2.png",
-  alex: "./Alex Denning.png",
-  lach: "./Lach Taylor (2).png",
-  jkelly: "./James Kelly (2).png",
+  alex: "./Alex Denning.PNG",
+  lach: "./Lach Taylor (2).PNG",
+  jkelly: "./James Kelly (2).PNG",
   luke: "./Luke Abi-Hanna.png",
 };
 
