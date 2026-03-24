@@ -1751,7 +1751,7 @@ const DEFAULT_STATE = {
     callum: 15.4,
     jkelly: 35.4,
     jturner: 17.8,
-    chris: 1.5,
+    chris: 20.6,
     luke: 14.0,
     alex: 15.6,
     lach: 28.0,
