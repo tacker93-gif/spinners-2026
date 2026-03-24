@@ -7,6 +7,8 @@ const DEFAULT_REMOTE_CONFIG = {
   supabaseKey:
     "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndnY3J1anBtcWZ0ZWx4dHV0Z2pyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyODUxMDgsImV4cCI6MjA4ODg2MTEwOH0.65Z6in9zU0Fy4LtjuWPyTvrNO-2aHhgJZfjga9yrI5Q",
 };
+const INTERNAL_TEAM_KEYS = { yellow: "blue", red: "grey" };
+const EXTERNAL_TEAM_KEYS = { blue: "yellow", grey: "red" };
 
 function getSearchParams() {
   try {
@@ -248,8 +250,9 @@ async function writeRemoteState(nextState) {
   if (!SUPABASE_URL || !SUPABASE_KEY) return { ok: true };
 
   const now = new Date().toISOString();
-  const rowPayload = { id: DB_ROW_ID, data: nextState, updated_at: now };
-  const updatePayload = { data: nextState, updated_at: now };
+  const remoteState = toRemoteState(nextState);
+  const rowPayload = { id: DB_ROW_ID, data: remoteState, updated_at: now };
+  const updatePayload = { data: remoteState, updated_at: now };
   const rowFilter = new URLSearchParams({
     id: `eq.${DB_ROW_ID}`,
     select: "id",
@@ -367,7 +370,7 @@ const PLAYER_PHOTOS = {
   callum: "./Callum Hinwood 2.png",
   jkelly: "./James Kelly (2).png",
   jturner: "./James Turner.png",
-  chris: "./Chris Green.png",
+  chris: "./Jasper Taylor.jpg",
   luke: "./Luke Abi-Hanna.png",
   alex: "./Alex Denning.png",
   lach: "./Lach Taylor (2).png",
@@ -476,7 +479,7 @@ const PLAYERS = [
   { id: "callum", name: "Callum Hinwood", short: "Callum", team: "blue" },
   { id: "jkelly", name: "James Kelly", short: "J. Kelly", team: "blue" },
   { id: "jturner", name: "James Turner", short: "J. Turner", team: "blue" },
-  { id: "chris", name: "Chris Green", short: "Chris", team: "grey" },
+  { id: "chris", name: "Jasper Taylor", short: "Jasper", team: "grey" },
   { id: "luke", name: "Luke Abi-Hanna", short: "Luke", team: "grey" },
   { id: "alex", name: "Alex Denning", short: "Alex", team: "grey" },
   { id: "lach", name: "Lach Taylor", short: "Lach", team: "grey" },
@@ -490,7 +493,7 @@ const PLAYER_BIOS = {
   tom: "Tom swings the club with the smooth confidence of a man used to making big calls in private equity and expecting them to work out. Armed with a swing that looks far too easy and a head large enough to store all that confidence, he’s quietly convinced the Spinners Cup is his to lose. In a team format he’ll happily assume leadership duties, whether anyone asked him to or not.",
   cam: "Cam is widely regarded as one of the genuinely nicest blokes on the trip, which makes it even more annoying when he’s also playing good golf. His trademark laugh will likely be heard echoing around the greens of PK all weekend as he quietly goes about trying to defend the Spinners Cup. In a team environment he’s the ultimate glue guy — positive, competitive, and the bloke everyone wants in their group.",
   chris:
-    "Chris arrives fresh from the international cricket circuit and immediately claims the title of best golfer on the trip, which annoyingly might actually be true. Equal parts pretty boy and elite sportsman, he loves to get out of the gates early with a few birdies before the sledging begins to creep into his head. Under pressure he has been known to wilt slightly — particularly when reminded that his little brother has already won the Spinners Cup twice. In a team environment he’ll bring elite shot-making, provided the chirping doesn’t get to him first.",
+    "A last-minute replacement who proves our recruitment bar is officially on the floor, Jasper brings elite energy and a golf game as erratic as a Parramatta Eels season. He’s the only man capable of turning a 300-yard drive into a scenic tour of the long grass, making him a lock for the \"Good Times\" award and a nightmare for his betting partner. Just like his footy team, he’ll show up with plenty of hype only to leave everyone asking, \"Is it next year yet?\"",
   nick: "Nick worships Tiger Woods and approaches the Spinners Cup with the same intensity, which makes last year’s playoff loss sting even more. Working at CBA has perhaps made him a little risk-averse at times — expect plenty of “percentage golf” and cautious lines off the tee while he channels his inner Tiger. In a team setting he’ll bring serious competitive energy, although his teammates may occasionally need to convince him to take the aggressive play.",
   jason:
     "Jason possesses what many experts are already calling the ugliest swing ever brought to the Mornington Peninsula. Somehow the ball still goes forward often enough to keep him in the game, much to the confusion of everyone watching. Despite the chaotic mechanics, his clean-cut physique suggests a man built for sport — unfortunately the golf swing didn’t get the same treatment. In a team format he’ll happily grind away and try to sneak in the occasional surprisingly solid shot.",
@@ -537,9 +540,9 @@ const ROUND_PREDICTION_COPY = {
     r3: "Prediction: final round calls for a polished finish — PK North will hand you enough drama already, so deliver substance before the spin on the back nine.",
   },
   chris: {
-    r1: "Prediction: a classy opener is looming — stripe the irons at St Andrews, trust the flight in the wind, and remind everyone why your ceiling is obnoxiously high.",
-    r2: "Prediction: moving day should be your stage at PK South if the sledging stays background noise and the approach play stays front-page quality.",
-    r3: "Prediction: final round is all about nerve control — PK North suits your shot-making if you keep the head quiet and let the swing do the flexing.",
+    r1: "Prediction: late-callup energy should travel nicely — start composed at St Andrews, lean on tidy irons, and settle into the weekend quickly.",
+    r2: "Prediction: moving day could be a big one at PK South if you keep the misses small and stay patient through the awkward middle stretch.",
+    r3: "Prediction: final round suits your no-fuss style — PK North rewards committed targets, sensible aggression, and calm execution under pressure.",
   },
   luke: {
     r1: "Prediction: opening day has big-game guard energy — attack the scoring holes at St Andrews, own the moment, and make the group feel your pace early.",
@@ -608,7 +611,7 @@ const PLAYER_BIO_IMAGES = {
   angus: "./Angus Scott.png",
   tom: "./Tom Crawford.png",
   cam: "./Cam Clark.png",
-  chris: "./Chris Green.png",
+  chris: "./Jasper Taylor.jpg",
   nick: "./Nick Tankard.png",
   jason: "./Jason McIlwaine (2).png",
   jturner: "./James Turner.png",
@@ -713,7 +716,7 @@ const HOLE_DESC = {
 // ─── PK Room Assignments ─────────────────────────────────────
 const PK_ROOMS = [
   { room: "1 (Remote Room)", players: ["Tom Crawford", "Luke Abi-Hanna"] },
-  { room: "2", players: ["Chris Green", "Cam Clark"] },
+  { room: "2", players: ["Jasper Taylor", "Cam Clark"] },
   { room: "3", players: ["Nick Tankard", "James Turner"] },
   { room: "4", players: ["Alex Denning", "Lach Taylor"] },
   { room: "5 (Remote Room)", players: ["Jason McIlwaine", "Callum Hinwood"] },
@@ -1774,46 +1777,88 @@ const DEFAULT_STATE = {
 
 function normalizeState(raw) {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const normalizedRaw = fromRemoteState(raw);
   const next = DC(DEFAULT_STATE);
-  Object.assign(next, raw);
-  next.handicaps = { ...DEFAULT_STATE.handicaps, ...(raw.handicaps || {}) };
-  next.scores = raw.scores && typeof raw.scores === "object" ? raw.scores : {};
+  Object.assign(next, normalizedRaw);
+  next.handicaps = {
+    ...DEFAULT_STATE.handicaps,
+    ...(normalizedRaw.handicaps || {}),
+  };
+  next.scores =
+    normalizedRaw.scores && typeof normalizedRaw.scores === "object"
+      ? normalizedRaw.scores
+      : {};
   next.ntpWinners =
-    raw.ntpWinners && typeof raw.ntpWinners === "object" ? raw.ntpWinners : {};
+    normalizedRaw.ntpWinners && typeof normalizedRaw.ntpWinners === "object"
+      ? normalizedRaw.ntpWinners
+      : {};
   next.ldWinners =
-    raw.ldWinners && typeof raw.ldWinners === "object" ? raw.ldWinners : {};
+    normalizedRaw.ldWinners && typeof normalizedRaw.ldWinners === "object"
+      ? normalizedRaw.ldWinners
+      : {};
   next.chulligans =
-    raw.chulligans && typeof raw.chulligans === "object" ? raw.chulligans : {};
+    normalizedRaw.chulligans && typeof normalizedRaw.chulligans === "object"
+      ? normalizedRaw.chulligans
+      : {};
   next.submitted =
-    raw.submitted && typeof raw.submitted === "object" ? raw.submitted : {};
+    normalizedRaw.submitted && typeof normalizedRaw.submitted === "object"
+      ? normalizedRaw.submitted
+      : {};
   next.dailySummaries =
-    raw.dailySummaries && typeof raw.dailySummaries === "object"
-      ? raw.dailySummaries
+    normalizedRaw.dailySummaries &&
+    typeof normalizedRaw.dailySummaries === "object"
+      ? normalizedRaw.dailySummaries
       : {};
   next.dailySummaryDrafts =
-    raw.dailySummaryDrafts && typeof raw.dailySummaryDrafts === "object"
-      ? raw.dailySummaryDrafts
+    normalizedRaw.dailySummaryDrafts &&
+    typeof normalizedRaw.dailySummaryDrafts === "object"
+      ? normalizedRaw.dailySummaryDrafts
       : {};
-  next.sledgeFeed = Array.isArray(raw.sledgeFeed)
-    ? pruneExpiredSledges(raw.sledgeFeed)
+  next.sledgeFeed = Array.isArray(normalizedRaw.sledgeFeed)
+    ? pruneExpiredSledges(normalizedRaw.sledgeFeed)
     : [];
   next.sledgeMeta =
-    raw.sledgeMeta && typeof raw.sledgeMeta === "object" ? raw.sledgeMeta : {};
+    normalizedRaw.sledgeMeta && typeof normalizedRaw.sledgeMeta === "object"
+      ? normalizedRaw.sledgeMeta
+      : {};
   next.sledgeReads =
-    raw.sledgeReads && typeof raw.sledgeReads === "object"
-      ? raw.sledgeReads
+    normalizedRaw.sledgeReads && typeof normalizedRaw.sledgeReads === "object"
+      ? normalizedRaw.sledgeReads
       : {};
   next.summaryReads =
-    raw.summaryReads && typeof raw.summaryReads === "object"
-      ? raw.summaryReads
+    normalizedRaw.summaryReads && typeof normalizedRaw.summaryReads === "object"
+      ? normalizedRaw.summaryReads
       : {};
   next.roundScoringLive = {
     ...DEFAULT_STATE.roundScoringLive,
-    ...(raw.roundScoringLive || {}),
+    ...(normalizedRaw.roundScoringLive || {}),
   };
-  next.tees = { ...DEFAULT_STATE.tees, ...(raw.tees || {}) };
-  next.teamNames = { ...DEFAULT_TEAM_NAMES, ...(raw.teamNames || {}) };
-  next.eventLive = !!raw.eventLive;
+  next.tees = { ...DEFAULT_STATE.tees, ...(normalizedRaw.tees || {}) };
+  next.teamNames = { ...DEFAULT_TEAM_NAMES, ...(normalizedRaw.teamNames || {}) };
+  next.eventLive = !!normalizedRaw.eventLive;
+  return next;
+}
+
+function remapTeamNameKeys(teamNames, keyMap) {
+  if (!teamNames || typeof teamNames !== "object") return {};
+  const mapped = {};
+  Object.entries(teamNames).forEach(([key, value]) => {
+    mapped[keyMap[key] || key] = value;
+  });
+  return mapped;
+}
+
+function fromRemoteState(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const next = { ...raw };
+  next.teamNames = remapTeamNameKeys(raw.teamNames, INTERNAL_TEAM_KEYS);
+  return next;
+}
+
+function toRemoteState(state) {
+  if (!state || typeof state !== "object" || Array.isArray(state)) return state;
+  const next = { ...state };
+  next.teamNames = remapTeamNameKeys(state.teamNames, EXTERNAL_TEAM_KEYS);
   return next;
 }
 
