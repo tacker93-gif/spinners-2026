@@ -370,7 +370,7 @@ const PLAYER_PHOTOS = {
   callum: "./Callum Hinwood 2.png",
   jkelly: "./James Kelly (2).PNG",
   jturner: "./James Turner.PNG",
-  chris: "./Jasper Taylor.jpg",
+  chris: "./Jasper Taylor.PNG",
   luke: "./Luke Abi-Hanna.png",
   alex: "./Alex Denning.PNG",
   lach: "./Lach Taylor (2).PNG",
