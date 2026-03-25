@@ -745,9 +745,9 @@ const ROUNDS = [
     courseName: "PK South Course",
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
-      { id: "m4", blue: ["tom", "cam"], grey: ["angus", "alex"] },
-      { id: "m5", blue: ["nick", "jturner"], grey: ["jason", "jkelly"] },
-      { id: "m6", blue: ["callum", "lach"], grey: ["luke", "chris"] },
+      { id: "m4", blue: ["tom", "lach"], grey: ["angus", "alex"] },
+      { id: "m5", blue: ["nick", "callum"], grey: ["jason", "jkelly"] },
+      { id: "m6", blue: ["jturner", "cam"], grey: ["luke", "chris"] },
     ],
   },
   {
