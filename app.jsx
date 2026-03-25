@@ -2948,7 +2948,8 @@ function App() {
     );
 
   const openScoringBeforeLive = !!state.scoringOpenWhenHidden;
-  const live = !!state.eventLive || isPracticeRoundLive(state) || isAdmin;
+  const live = !!state.eventLive || isAdmin;
+  const sledgeLive = live || isPracticeRoundLive(state);
   const scoringTabOpen = live || openScoringBeforeLive;
 
   return (
@@ -3039,7 +3040,7 @@ function App() {
           />
         )}
         {tab === "sledge" && !sub && (
-          <SledgeFeedPage state={state} cur={cur} live={live} />
+          <SledgeFeedPage state={state} cur={cur} live={sledgeLive} />
         )}
         {tab === "leaders" && !sub && (
           <LeaderList onSelect={(id) => setSub({ t: "lb", id })} />
@@ -3342,7 +3343,7 @@ function PlayerSelect({
   const [showAdminEntry, setShowAdminEntry] = useState(false);
   const [code, setCode] = useState("");
   const [err, setErr] = useState(false);
-  const live = !!state?.eventLive || isPracticeRoundLive(state);
+  const live = !!state?.eventLive;
   const playerOrder = [
     "chris",
     "angus",
