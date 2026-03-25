@@ -3924,6 +3924,197 @@ function LockedMessage({ title, msg, onBack }) {
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
+  if (!state?.eventLive) {
+    const practiceRound = ROUNDS.find((r) => r.id === "r0");
+    const practiceCourse = practiceRound ? getCourse(practiceRound.courseId) : null;
+
+    const individualRows = practiceCourse
+      ? PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id))
+          .map((p) => {
+            const sc = state.scores?.[practiceRound.id]?.[p.id] || [];
+            return {
+              ...p,
+              score: pStab(
+                sc,
+                practiceCourse,
+                courseHcp(
+                  state.handicaps?.[p.id],
+                  practiceCourse,
+                  getTeeKey(state, practiceCourse.id),
+                ),
+              ),
+              holes: sc.filter((s) => holeFilled(s)).length,
+            };
+          })
+          .sort((a, b) => b.score - a.score)
+      : [];
+
+    const teamRows = practiceCourse
+      ? PRACTICE_TEAMS.map((team, idx) => {
+          const playerRows = team.playerIds.map((playerId) => {
+            const sc = state.scores?.[practiceRound.id]?.[playerId] || [];
+            return {
+              playerId,
+              scores: sc,
+              score: pStab(
+                sc,
+                practiceCourse,
+                courseHcp(
+                  state.handicaps?.[playerId],
+                  practiceCourse,
+                  getTeeKey(state, practiceCourse.id),
+                ),
+              ),
+            };
+          });
+          const counted = [...playerRows].sort((a, b) => b.score - a.score).slice(0, 2);
+          const teamHoles = practiceCourse.holes.reduce((total, hole, holeIdx) => {
+            const allSubmitted = playerRows.every((playerRow) =>
+              holeFilled(playerRow.scores?.[holeIdx] || 0),
+            );
+            return total + (allSubmitted ? 1 : 0);
+          }, 0);
+          return {
+            id: team.id,
+            rankSeed: idx,
+            players: team.playerIds.map((playerId) => getP(playerId)?.short),
+            score: counted.reduce((sum, row) => sum + row.score, 0),
+            holes: teamHoles,
+          };
+        }).sort((a, b) => b.score - a.score || a.rankSeed - b.rankSeed)
+      : [];
+
+    const rankLabel = (idx) =>
+      idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx + 1;
+
+    return (
+      <div>
+        <div style={{ ...S.card, background: "#f0f9ff", borderColor: "#bfdbfe" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8" }}>
+            Pre-live view
+          </div>
+          <div
+            style={{
+              fontSize: 14,
+              fontWeight: 700,
+              color: "#1e293b",
+              marginTop: 2,
+            }}
+          >
+            Practice Round Leaderboards
+          </div>
+          <div style={{ fontSize: 11, color: "#475569", marginTop: 4, lineHeight: 1.45 }}>
+            The app is currently in pre-live mode, so this page shows live practice
+            standings for both individual and 3-ball team events.
+          </div>
+        </div>
+
+        <h2 style={{ ...S.sectTitle, marginTop: 16, marginBottom: 10 }}>
+          Practice Stableford
+        </h2>
+        {individualRows.map((row, idx) => (
+          <div
+            key={row.id}
+            style={{
+              ...S.card,
+              marginBottom: 8,
+              borderLeft: `3px solid ${idx === 0 ? "#16a34a" : "#cbd5e1"}`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 24,
+                  textAlign: "center",
+                  fontSize: idx < 3 ? 16 : 13,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                }}
+              >
+                {rankLabel(idx)}
+              </div>
+              <PlayerAvatar id={row.id} size={LEADER_SINGLE_PHOTO_SIZE} live={true} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
+                  {row.name}
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#2d6a4f",
+                    fontFamily: "'JetBrains Mono',monospace",
+                  }}
+                >
+                  {row.score}
+                </div>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>({row.holes}/18)</div>
+              </div>
+            </div>
+          </div>
+        ))}
+
+        <h2 style={{ ...S.sectTitle, marginTop: 16, marginBottom: 10 }}>
+          Practice 3-Ball Teams
+        </h2>
+        {teamRows.map((row, idx) => (
+          <div
+            key={row.id}
+            style={{
+              ...S.card,
+              marginBottom: 8,
+              borderLeft: `3px solid ${idx === 0 ? "#16a34a" : "#cbd5e1"}`,
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div
+                style={{
+                  width: 24,
+                  textAlign: "center",
+                  fontSize: idx < 3 ? 16 : 13,
+                  fontWeight: 700,
+                  color: "#94a3b8",
+                }}
+              >
+                {rankLabel(idx)}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#1e293b",
+                    lineHeight: 1.25,
+                  }}
+                >
+                  {row.players.join(" / ")}
+                </div>
+                <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>
+                  Best 2 scores count
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div
+                  style={{
+                    fontSize: 16,
+                    fontWeight: 700,
+                    color: "#2d6a4f",
+                    fontFamily: "'JetBrains Mono',monospace",
+                  }}
+                >
+                  {row.score}
+                </div>
+                <div style={{ fontSize: 10, color: "#94a3b8" }}>({row.holes}/18)</div>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   let bT = 0,
     gT = 0,
     bLive = 0,
