@@ -470,6 +470,37 @@ const COURSES = [
       { n: 18, par: 4, si: 5, si2: 23, w: 370, b: 390 },
     ],
   },
+  {
+    id: "dunes",
+    name: "The Dunes",
+    short: "Dunes",
+    par: 72,
+    teeData: {
+      blue: { slope: 141, rating: 74.1, label: "Blue" },
+      white: { slope: 135, rating: 71.2, label: "White" },
+      black: { slope: 148, rating: 75.2, label: "Black" },
+    },
+    holes: [
+      { n: 1, par: 4, si: 1, w: 368, b: 409 },
+      { n: 2, par: 4, si: 5, w: 319, b: 365 },
+      { n: 3, par: 3, si: 18, w: 124, b: 135 },
+      { n: 4, par: 4, si: 15, w: 285, b: 310 },
+      { n: 5, par: 5, si: 10, w: 442, b: 473 },
+      { n: 6, par: 3, si: 17, w: 180, b: 193 },
+      { n: 7, par: 5, si: 14, w: 443, b: 477 },
+      { n: 8, par: 4, si: 3, w: 378, b: 392 },
+      { n: 9, par: 4, si: 9, w: 337, b: 376 },
+      { n: 10, par: 4, si: 12, w: 301, b: 310 },
+      { n: 11, par: 4, si: 16, w: 291, b: 340 },
+      { n: 12, par: 5, si: 2, w: 430, b: 502 },
+      { n: 13, par: 3, si: 7, w: 144, b: 160 },
+      { n: 14, par: 4, si: 8, w: 315, b: 354 },
+      { n: 15, par: 4, si: 6, w: 370, b: 392 },
+      { n: 16, par: 5, si: 11, w: 458, b: 505 },
+      { n: 17, par: 3, si: 4, w: 146, b: 179 },
+      { n: 18, par: 4, si: 13, w: 346, b: 370 },
+    ],
+  },
 ];
 
 const PLAYERS = [
@@ -725,6 +756,17 @@ const PK_ROOMS = [
 
 const ROUNDS = [
   {
+    id: "r0",
+    num: "Practice",
+    day: "Thursday 26th March",
+    courseId: "dunes",
+    courseName: "The Dunes",
+    teeTimes: ["12:33pm", "12:42pm"],
+    isPractice: true,
+    includeInCup: false,
+    matches: [],
+  },
+  {
     id: "r1",
     num: 1,
     day: "Friday 27th March",
@@ -857,6 +899,7 @@ const HIDDEN_PLAYER_IMAGE_FILTER =
   "grayscale(100%) contrast(1.35) brightness(0.92) blur(6px)";
 const HIDDEN_PLAYER_IMAGE_OVERLAY =
   "linear-gradient(180deg, rgba(248,250,252,0.08) 0%, rgba(226,232,240,0.45) 44%, rgba(226,232,240,0.96) 68%, rgba(226,232,240,1) 100%)";
+const PLAYER_PHOTOS_VISIBLE = false;
 
 function PlayerAvatar({
   id,
@@ -868,7 +911,8 @@ function PlayerAvatar({
   const player = getP(id);
   const src = PLAYER_PHOTOS[id];
   const teamColor = player?.team === "blue" ? "#D4A017" : "#DC2626";
-  const borderColor = live && border ? teamColor : "#d1d5db";
+  const avatarLive = live && PLAYER_PHOTOS_VISIBLE;
+  const borderColor = avatarLive && border ? teamColor : "#d1d5db";
   const initials = (player?.name || "?")
     .split(" ")
     .map((part) => part[0])
@@ -956,14 +1000,14 @@ function PlayerAvatar({
             borderRadius: "50%",
             border: `2px solid ${borderColor}`,
             objectFit: "cover",
-            objectPosition: live ? "center" : "center 18%",
-            transform: live ? "none" : "scale(1.18)",
+            objectPosition: avatarLive ? "center" : "center 18%",
+            transform: avatarLive ? "none" : "scale(1.18)",
             flexShrink: 0,
-            filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
+            filter: avatarLive ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
           }}
         />
       )}
-      {!live && visible && !failed && (
+      {!avatarLive && visible && !failed && (
         <div
           aria-hidden="true"
           style={{
@@ -1770,8 +1814,9 @@ const DEFAULT_STATE = {
   sledgeReads: {},
   summaryReads: {},
   eventLive: false,
-  roundScoringLive: { r1: true, r2: false, r3: false },
-  tees: { standrews: "white", pk_south: "white", pk_north: "white" },
+  scoringOpenWhenHidden: false,
+  roundScoringLive: { r0: false, r1: true, r2: false, r3: false },
+  tees: { standrews: "white", pk_south: "white", pk_north: "white", dunes: "blue" },
   teamNames: { ...DEFAULT_TEAM_NAMES },
 };
 
@@ -1834,6 +1879,7 @@ function normalizeState(raw) {
     ...(normalizedRaw.roundScoringLive || {}),
   };
   next.tees = { ...DEFAULT_STATE.tees, ...(normalizedRaw.tees || {}) };
+  next.scoringOpenWhenHidden = !!normalizedRaw.scoringOpenWhenHidden;
   next.teamNames = { ...DEFAULT_TEAM_NAMES, ...(normalizedRaw.teamNames || {}) };
   next.eventLive = !!normalizedRaw.eventLive;
   return next;
@@ -2315,7 +2361,7 @@ function isRoundScoringLive(state, roundId) {
 
 function isRoundRevealed(state, roundId, live, isAdmin) {
   if (isAdmin) return true;
-  if (!live) return false;
+  if (!live && !state?.scoringOpenWhenHidden) return false;
   return isRoundScoringLive(state, roundId);
 }
 
@@ -2333,7 +2379,9 @@ function getTeeLabel(course, teeKey) {
   return course.teeData[teeKey]?.label || "White";
 }
 function getM(hole, teeKey) {
-  return teeKey === "blue" ? hole.b : hole.w;
+  if (teeKey === "blue") return hole.b;
+  if (teeKey === "black") return hole.black || hole.b;
+  return hole.w;
 }
 
 function isRoundFullySubmitted(state, roundId) {
@@ -2371,6 +2419,7 @@ function getOverallLeaderboard(state) {
   return PLAYERS.map((p) => {
     let total = 0;
     ROUNDS.forEach((r) => {
+      if (r.includeInCup === false) return;
       const course = getCourse(r.courseId);
       const scores = state.scores?.[r.id]?.[p.id] || [];
       total += pStab(
@@ -2886,7 +2935,9 @@ function App() {
       />
     );
 
+  const openScoringBeforeLive = !!state.scoringOpenWhenHidden;
   const live = !!state.eventLive || isAdmin;
+  const scoringTabOpen = live || openScoringBeforeLive;
 
   return (
     <div style={S.app}>
@@ -2950,7 +3001,7 @@ function App() {
           ))}
         {tab === "scores" &&
           !sub &&
-          (live ? (
+          (scoringTabOpen ? (
             <ScoresList
               state={state}
               cur={cur}
@@ -2960,7 +3011,7 @@ function App() {
           ) : (
             <LockedPage
               title="Scoring"
-              msg="Scoring will open when the event goes live."
+              msg="Scoring will open once admin enables open scoring."
               icon="⛳"
             />
           ))}
@@ -6666,6 +6717,7 @@ function LeaderList({ onSelect }) {
       name: "🏆 Spinners Cup",
       desc: "Cumulative stableford across 3 rounds",
     },
+    { id: "practice", name: "Practice Stableford", desc: "The Dunes" },
     { id: "d1", name: "Day 1 Stableford", desc: "St Andrews Beach" },
     { id: "d2", name: "Day 2 Stableford", desc: "PK South" },
     { id: "d3", name: "Day 3 Stableford", desc: "PK North" },
@@ -6790,7 +6842,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       );
     }
     const revealedRounds = ROUNDS.filter((r) =>
-      isRoundRevealed(state, r.id, live, isAdmin),
+      r.includeInCup !== false && isRoundRevealed(state, r.id, live, isAdmin),
     );
     rankings = PLAYERS.map((p) => {
       let t = 0,
@@ -6806,6 +6858,53 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         holes += sc.filter((s) => holeFilled(s)).length;
       });
       return { ...p, score: t, holes, totalHoles: revealedRounds.length * 18 };
+    }).sort((a, b) => b.score - a.score);
+  } else if (catId === "practice") {
+    const round = ROUNDS.find((r) => r.id === "r0");
+    const course = getCourse(round.courseId);
+    if (!isRoundRevealed(state, round.id, live, isAdmin)) {
+      return (
+        <div>
+          <button onClick={onBack} style={S.backBtn}>
+            ← Back
+          </button>
+          <h2 style={S.sectTitle}>Round locked</h2>
+          <div
+            style={{
+              ...S.card,
+              borderStyle: "dashed",
+              borderColor: "#cbd5e1",
+              background: "#f8fafc",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+              This leaderboard is hidden
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+              It will unlock once admin opens scoring for this round.
+            </div>
+          </div>
+        </div>
+      );
+    }
+    rankings = PLAYERS.map((p) => {
+      const sc = state.scores?.[round.id]?.[p.id] || [];
+      const holes = sc.filter((s) => holeFilled(s)).length;
+      return {
+        ...p,
+        score: pStab(
+          sc,
+          course,
+          courseHcp(
+            state.handicaps?.[p.id],
+            course,
+            getTeeKey(state, course.id),
+          ),
+        ),
+        holes,
+        totalHoles: 18,
+        roundId: round.id,
+      };
     }).sort((a, b) => b.score - a.score);
   } else if (catId.startsWith("d")) {
     const ri = parseInt(catId[1]) - 1;
@@ -6929,6 +7028,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
   }
   const titles = {
     spinners: "🏆 Spinners Cup",
+    practice: "Practice Stableford",
     d1: "Day 1 Stableford",
     d2: "Day 2 Stableford",
     d3: "Day 3 Stableford",
@@ -7282,6 +7382,43 @@ function MatchSchedule({ state, isAdmin, onBack }) {
               >
                 Tee Times & Draw
               </div>
+              {round.matches.length === 0 && (
+                <div
+                  style={{
+                    padding: "8px 10px",
+                    background: "#fff",
+                    borderRadius: 8,
+                    marginBottom: 6,
+                    border: "1px solid #e2e8f0",
+                  }}
+                >
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
+                    Individual practice round (no teams)
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {round.teeTimes.map((time) => (
+                      <span
+                        key={time}
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 700,
+                          color: "#2d6a4f",
+                          fontFamily: "'JetBrains Mono',monospace",
+                        }}
+                      >
+                        {time}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               {round.matches.map((match, mi) => (
                 <div
                   key={match.id}
@@ -8209,7 +8346,7 @@ function PlayersPage({ state, upd, isAdmin, live }) {
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                 {state.eventLive
                   ? "Event is LIVE — players can see teams, matches & enter scores"
-                  : "Event is HIDDEN — teams, matches & scoring are hidden from players"}
+                  : "Event is HIDDEN — teams and matches stay hidden until launch"}
               </div>
             </div>
             <button
@@ -8234,6 +8371,47 @@ function PlayersPage({ state, upd, isAdmin, live }) {
               {state.eventLive ? "Go Hidden" : "Go Live"}
             </button>
           </div>
+        </div>
+      )}
+
+      {isAdmin && (
+        <div
+          style={{
+            padding: "14px 16px",
+            background: "#fff",
+            borderRadius: 12,
+            border: "1px solid #e2e8f0",
+            marginBottom: 16,
+          }}
+        >
+          <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
+            🔓 Open Scoring (Pre-Launch)
+          </div>
+          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+            Allow score entry before the event is marked live.
+          </div>
+          <button
+            onClick={() =>
+              upd((s) => {
+                s.scoringOpenWhenHidden = !s.scoringOpenWhenHidden;
+              })
+            }
+            style={{
+              marginTop: 10,
+              padding: "8px 12px",
+              borderRadius: 8,
+              border: "none",
+              background: state.scoringOpenWhenHidden ? "#dc2626" : "#16a34a",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {state.scoringOpenWhenHidden
+              ? "Disable Open Scoring"
+              : "Enable Open Scoring"}
+          </button>
         </div>
       )}
 
@@ -8386,6 +8564,7 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                     upd((s) => {
                       if (!s.roundScoringLive)
                         s.roundScoringLive = {
+                          r0: false,
                           r1: false,
                           r2: false,
                           r3: false,
