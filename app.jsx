@@ -1720,6 +1720,10 @@ function findMatchByTeam(roundId, teamIds) {
   );
 }
 
+function getPracticeTeamByPlayer(playerId) {
+  return PRACTICE_TEAMS.find((team) => team.playerIds.includes(playerId)) || null;
+}
+
 function isSubmitted(state, roundId, playerId) {
   return !!state.submitted?.[roundId]?.[playerId];
 }
@@ -3068,6 +3072,24 @@ function App() {
               setTab("cup");
               setSub({ t: "m", id: matchId, roundId });
             }}
+            onOpenPracticeScorecard={({ roundId, practiceTeamId, focusPlayerId }) => {
+              setSub({
+                t: "practice_sc",
+                roundId,
+                practiceTeamId,
+                focusPlayerId: focusPlayerId || null,
+                fromCatId: sub.id,
+              });
+            }}
+          />
+        )}
+        {tab === "leaders" && sub?.t === "practice_sc" && (
+          <PracticeRoundScorecardView
+            state={state}
+            roundId={sub.roundId}
+            practiceTeamId={sub.practiceTeamId}
+            focusPlayerId={sub.focusPlayerId}
+            onBack={() => setSub({ t: "lb", id: sub.fromCatId || "practice" })}
           />
         )}
         {tab === "schedule" && !sub && (
@@ -5121,6 +5143,157 @@ function ScoresList({ state, cur, isAdmin, onSelect }) {
   );
 }
 
+function PracticeRoundScorecardView({
+  state,
+  roundId,
+  practiceTeamId,
+  focusPlayerId,
+  onBack,
+}) {
+  const round = ROUNDS.find((r) => r.id === roundId);
+  const team = PRACTICE_TEAMS.find((t) => t.id === practiceTeamId);
+  if (!round || !team) return null;
+  const course = getCourse(round.courseId);
+  const tk = getTeeKey(state, course.id);
+  const players = team.playerIds.map((playerId) => ({
+    playerId,
+    short: getP(playerId)?.short || "???",
+    dailyHcp: courseHcp(state.handicaps?.[playerId], course, tk) || 0,
+    scores: state.scores?.[round.id]?.[playerId] || [],
+  }));
+  const holeData = course.holes.map((h, i) => {
+    const entries = players.map((player) => {
+      const gross = player.scores[i] || 0;
+      const filled = holeFilled(gross);
+      const isPU = isPickup(gross);
+      const pts =
+        gross > 0 || isPU ? sPts(gross, h.par, hStrokes(player.dailyHcp, h)) : 0;
+      return { ...player, gross, filled, isPU, pts };
+    });
+    const taken = [...entries]
+      .filter((entry) => entry.filled)
+      .sort((a, b) => b.pts - a.pts)
+      .slice(0, 2);
+    const takenIds = new Set(taken.map((entry) => entry.playerId));
+    const teamScore = taken.reduce((sum, entry) => sum + entry.pts, 0);
+    return { h, entries, takenIds, teamScore };
+  });
+
+  return (
+    <div>
+      <button onClick={onBack} style={S.backBtn}>
+        ← Back
+      </button>
+      <h2 style={S.sectTitle}>Practice Team Scorecard</h2>
+      <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
+        {team.playerIds.map((playerId) => getP(playerId)?.short).join(" / ")} ·{" "}
+        {round.courseName}
+        {focusPlayerId ? ` · Opened from ${getP(focusPlayerId)?.short}` : ""}
+      </p>
+      <div
+        style={{
+          ...S.card,
+          borderColor: "#bbf7d0",
+          background: "#f0fdf4",
+          marginBottom: 12,
+        }}
+      >
+        <div style={{ fontSize: 11, color: "#166534", fontWeight: 700 }}>
+          Highlighted player scores are the two counted for team Stableford.
+        </div>
+      </div>
+      <div style={{ overflowX: "auto" }}>
+        <table
+          style={{
+            width: "100%",
+            borderCollapse: "collapse",
+            fontSize: 11,
+            fontFamily: "'DM Sans',sans-serif",
+          }}
+        >
+          <thead>
+            <tr style={{ background: "#f8faf8" }}>
+              <th style={S.th}>Hole</th>
+              <th style={S.th}>Par</th>
+              {players.map((player) => (
+                <th key={player.playerId} style={{ ...S.th, fontSize: 9 }}>
+                  {player.short}
+                </th>
+              ))}
+              <th style={{ ...S.th, fontSize: 9, color: "#166534" }}>Team</th>
+            </tr>
+          </thead>
+          <tbody>
+            {holeData.map(({ h, entries, takenIds, teamScore }) => (
+              <tr key={h.n} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={S.td}>{h.n}</td>
+                <td style={{ ...S.td, color: "#94a3b8" }}>{h.par}</td>
+                {entries.map((entry) => (
+                  <td
+                    key={`${h.n}_${entry.playerId}`}
+                    style={{
+                      ...S.td,
+                      background: takenIds.has(entry.playerId)
+                        ? "#ecfdf5"
+                        : "transparent",
+                    }}
+                  >
+                    {entry.isPU ? (
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#94a3b8" }}>P</div>
+                        <div style={{ fontSize: 8, color: "#94a3b8" }}>0pts</div>
+                      </div>
+                    ) : entry.gross > 0 ? (
+                      <div>
+                        <div style={{ fontWeight: 600, color: "#1e293b" }}>
+                          {entry.gross}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 8,
+                            color: sColor(entry.pts),
+                            fontWeight: 600,
+                          }}
+                        >
+                          {entry.pts}pts
+                        </div>
+                      </div>
+                    ) : (
+                      <span style={{ color: "#d1d5db" }}>—</span>
+                    )}
+                  </td>
+                ))}
+                <td
+                  style={{
+                    ...S.td,
+                    fontWeight: 700,
+                    color: "#166534",
+                    background: takenIds.size === 2 ? "#dcfce7" : "transparent",
+                  }}
+                >
+                  {takenIds.size ? teamScore : "—"}
+                </td>
+              </tr>
+            ))}
+            <tr style={{ borderTop: "2px solid #e2e8f0", background: "#f8fafc" }}>
+              <td style={{ ...S.td, fontWeight: 700 }}>Total</td>
+              <td style={{ ...S.td, color: "#94a3b8" }}>—</td>
+              {players.map((player) => (
+                <td key={`total_${player.playerId}`} style={{ ...S.td, fontWeight: 700 }}>
+                  {pStab(player.scores, course, player.dailyHcp)}
+                </td>
+              ))}
+              <td style={{ ...S.td, fontWeight: 800, color: "#166534" }}>
+                {holeData.reduce((sum, row) => sum + row.teamScore, 0)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── Score Entry ─────────────────────────────────────────────
 function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   const [confirmSubmit, setConfirmSubmit] = useState(false);
@@ -6789,7 +6962,15 @@ function LeaderList({ onSelect }) {
   );
 }
 
-function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
+function LeaderView({
+  state,
+  catId,
+  live,
+  isAdmin,
+  onBack,
+  onOpenMatch,
+  onOpenPracticeScorecard,
+}) {
   const hideDailyPlayerPhotos =
     !live && (catId.startsWith("d") || catId.startsWith("2b"));
   if (catId === "ntp" || catId === "ld") {
@@ -6935,6 +7116,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       );
     }
     rankings = PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id)).map((p) => {
+      const practiceTeam = getPracticeTeamByPlayer(p.id);
       const sc = state.scores?.[round.id]?.[p.id] || [];
       const holes = sc.filter((s) => holeFilled(s)).length;
       return {
@@ -6951,6 +7133,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         holes,
         totalHoles: 18,
         roundId: round.id,
+        practiceTeamId: practiceTeam?.id || null,
       };
     }).sort((a, b) => b.score - a.score);
   } else if (catId === "practice_teams") {
@@ -7008,6 +7191,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         hideAvatar: true,
         neutralBorder: true,
         roundId: round.id,
+        practiceTeamId: team.id,
         sortOrder: idx,
       };
     }).sort((a, b) => b.score - a.score || a.sortOrder - b.sortOrder);
@@ -7150,6 +7334,11 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       <h2 style={S.sectTitle}>{titles[catId]}</h2>
       {rankings.map((r, i) => {
         const canOpen = !!(r.roundId && r.matchId && onOpenMatch);
+        const canOpenPractice = !!(
+          r.roundId &&
+          r.practiceTeamId &&
+          onOpenPracticeScorecard
+        );
         const teamBorderColor = r.neutralBorder
           ? "#cbd5e1"
           : live
@@ -7162,6 +7351,13 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
             key={r.id}
             onClick={() => {
               if (canOpen) onOpenMatch(r.roundId, r.matchId);
+              else if (canOpenPractice) {
+                onOpenPracticeScorecard({
+                  roundId: r.roundId,
+                  practiceTeamId: r.practiceTeamId,
+                  focusPlayerId: catId === "practice" ? r.id : null,
+                });
+              }
             }}
             style={{
               ...S.card,
@@ -7172,7 +7368,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
               borderTop: "1px solid #e2e8f0",
               borderRight: "1px solid #e2e8f0",
               borderBottom: "1px solid #e2e8f0",
-              cursor: canOpen ? "pointer" : "default",
+              cursor: canOpen || canOpenPractice ? "pointer" : "default",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
