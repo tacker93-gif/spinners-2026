@@ -654,6 +654,7 @@ const PLAYER_BIO_IMAGES = {
 };
 
 const NTP_HOLE_BY_ROUND = {
+  r0: 13,
   r2: 17,
 };
 
@@ -762,6 +763,11 @@ const ROUNDS = [
     courseId: "dunes",
     courseName: "The Dunes",
     teeTimes: ["12:33pm", "12:42pm"],
+    practiceGroups: [
+      ["Tom Crawford", "Nick Tankard", "Cam Clark", "Lach Taylor"],
+      ["Luke Abi-Hanna", "Callum Hinwood", "James Turner", "Angus Scott"],
+      ["Alex Denning", "Jason McIlwaine", "Chris Green", "James Kelly"],
+    ],
     isPractice: true,
     includeInCup: false,
     matches: [],
@@ -805,6 +811,15 @@ const ROUNDS = [
       { id: "m9", blue: ["tom", "callum"], grey: ["alex", "chris"] },
     ],
   },
+];
+
+const PRACTICE_PLAYER_IDS = [
+  "tom",
+  "alex",
+  "luke",
+  "jturner",
+  "lach",
+  "callum",
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -2186,7 +2201,7 @@ function buildSledgeMessage(type, context) {
 }
 
 function canPushSledgeForPlayers(state, roundId, playerIds, now = Date.now()) {
-  if (!state?.eventLive) return false;
+  if (!state?.eventLive && !isPracticeRoundLive(state)) return false;
   if (!state.sledgeMeta) state.sledgeMeta = {};
   const ids = [...new Set((playerIds || []).filter(Boolean))];
   if (ids.length === 0) return true;
@@ -2215,7 +2230,8 @@ function pushSledgeFeed(
   state,
   { roundId, playerId, playerIds, hole, catalystKey, message },
 ) {
-  if (!state?.eventLive || !message) return false;
+  if ((!state?.eventLive && !isPracticeRoundLive(state)) || !message)
+    return false;
   if (!state.sledgeFeed) state.sledgeFeed = [];
 
   const now = Date.now();
@@ -2248,7 +2264,12 @@ function maybePushScoreSledge(
   state,
   { roundId, playerId, holeIdx, prevVal, nextVal },
 ) {
-  if (!state?.eventLive || nextVal === prevVal || !holeFilled(nextVal)) return;
+  if (
+    (!state?.eventLive && !isPracticeRoundLive(state)) ||
+    nextVal === prevVal ||
+    !holeFilled(nextVal)
+  )
+    return;
   const round = ROUNDS.find((r) => r.id === roundId);
   if (!round) return;
   const course = getCourse(round.courseId);
@@ -2359,6 +2380,10 @@ function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
 }
 
+function isPracticeRoundLive(state) {
+  return isRoundScoringLive(state, "r0");
+}
+
 function isRoundRevealed(state, roundId, live, isAdmin) {
   if (isAdmin) return true;
   if (!live && !state?.scoringOpenWhenHidden) return false;
@@ -2390,12 +2415,8 @@ function isRoundFullySubmitted(state, roundId) {
 
 function canEnterHoleScores(state, roundId, playerId, holeIdx) {
   if (holeIdx <= 0) return true;
-  const partnerId = getPartner(playerId, roundId);
-  const prevPlayerScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
-  const prevPartnerScore = partnerId
-    ? state.scores?.[roundId]?.[partnerId]?.[holeIdx - 1] || 0
-    : 1;
-  return holeFilled(prevPlayerScore) && holeFilled(prevPartnerScore);
+  const prevScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
+  return holeFilled(prevScore);
 }
 
 function getRoundLeaderboard(state, round) {
@@ -2937,6 +2958,7 @@ function App() {
 
   const openScoringBeforeLive = !!state.scoringOpenWhenHidden;
   const live = !!state.eventLive || isAdmin;
+  const sledgeLive = live || isPracticeRoundLive(state);
   const scoringTabOpen = live || openScoringBeforeLive;
 
   return (
@@ -3027,7 +3049,7 @@ function App() {
           />
         )}
         {tab === "sledge" && !sub && (
-          <SledgeFeedPage state={state} cur={cur} live={live} />
+          <SledgeFeedPage state={state} cur={cur} live={sledgeLive} />
         )}
         {tab === "leaders" && !sub && (
           <LeaderList onSelect={(id) => setSub({ t: "lb", id })} />
@@ -5133,6 +5155,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
     ldH = getLdHole(round.courseId);
   const ntpKey = `${roundId}_ntp`,
     ldKey = `${roundId}_ld`;
+  const chulligansEnabled = !round.isPractice;
   const myChulligans = getChulliganRecord(state, roundId, playerId);
 
   let tPts = 0,
@@ -5190,7 +5213,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   };
 
   const setScore = (pid, holeIdx, val) => {
-    if (!isAdmin && !canEnterHoleScores(state, roundId, playerId, holeIdx))
+    if (!isAdmin && !canEnterHoleScores(state, roundId, pid, holeIdx))
       return;
     upd((s) => {
       if (!s.scores[roundId]) s.scores[roundId] = {};
@@ -5208,6 +5231,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   };
 
   const toggleChulligan = (pid, holeIdx) => {
+    if (!chulligansEnabled) return;
     const nine = holeIdx < 9 ? "front" : "back";
     upd((s) => {
       if (!s.chulligans) s.chulligans = {};
@@ -5676,11 +5700,15 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         <div>
           <h2 style={{ ...S.sectTitle, marginBottom: 2 }}>
             {player?.name}{" "}
-            {chulliganBadges(getChulliganCount(state, roundId, playerId))}
+            {chulligansEnabled
+              ? chulliganBadges(getChulliganCount(state, roundId, playerId))
+              : ""}
           </h2>
-          <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
-            🍺 Chulligans: {getChulliganCount(state, roundId, playerId)}/2
-          </div>
+          {chulligansEnabled && (
+            <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
+              🍺 Chulligans: {getChulliganCount(state, roundId, playerId)}/2
+            </div>
+          )}
           <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>
             {round.courseName} · {round.day}
           </p>
@@ -5737,11 +5765,15 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         >
           <span style={{ fontSize: 12, fontWeight: 600, color: "#B8860B" }}>
             👥 {partner.short}{" "}
-            {chulliganBadges(getChulliganCount(state, roundId, partnerId))}
+            {chulligansEnabled
+              ? chulliganBadges(getChulliganCount(state, roundId, partnerId))
+              : ""}
           </span>
-          <span style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
-            🍺 {getChulliganCount(state, roundId, partnerId)}/2
-          </span>
+          {chulligansEnabled && (
+            <span style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
+              🍺 {getChulliganCount(state, roundId, partnerId)}/2
+            </span>
+          )}
           <span
             style={{
               marginLeft: "auto",
@@ -5785,8 +5817,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
             fontWeight: 600,
           }}
         >
-          Finish both your score and {partner?.short || "your partner"}'s score
-          on hole {firstLockedHoleIdx} before moving to hole{" "}
+          Enter hole {firstLockedHoleIdx} before moving to hole{" "}
           {firstLockedHoleIdx + 1}.
         </div>
       )}
@@ -5847,6 +5878,9 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         {course.holes.map((h, i) => {
           const holeUnlocked =
             isAdmin || canEnterHoleScores(state, roundId, playerId, i);
+          const partnerHoleUnlocked = partnerId
+            ? isAdmin || canEnterHoleScores(state, roundId, partnerId, i)
+            : false;
           const val = scores[i] || 0;
           const isPU = isPickup(val);
           const strk = hStrokes(dH, h);
@@ -5890,7 +5924,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                   <span
                     style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}
                   >
-                    Front 9 {myChulligans.front != null ? "🍺" : ""}
+                    Front 9{" "}
+                    {chulligansEnabled && myChulligans.front != null ? "🍺" : ""}
                   </span>
                   <span
                     style={{
@@ -6159,43 +6194,44 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                     ) : (
                       <div style={{ color: "#d1d5db" }}>—</div>
                     )}
-                    {(() => {
-                      const cState = chulliganButtonState(playerId, i);
-                      return (
-                        <button
-                          onClick={() =>
-                            canEdit && holeUnlocked && toggleChulligan(playerId, i)
-                          }
-                          disabled={!canEdit || !holeUnlocked || cState.locked}
-                          style={{
-                            padding: "4px 7px",
-                            borderRadius: 6,
-                            border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
-                            background: cState.active ? "#fffbeb" : "#fff",
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color:
-                                (!canEdit || !holeUnlocked) && !cState.active
-                                  ? "#cbd5e1"
-                                : cState.locked
-                                  ? "#cbd5e1"
-                                  : cState.active
-                                    ? "#d97706"
-                                    : "#94a3b8",
-                            cursor:
-                              !canEdit || !holeUnlocked || cState.locked
-                                ? "not-allowed"
-                                : "pointer",
-                            opacity:
-                              !canEdit || !holeUnlocked || cState.locked
-                                ? 0.7
-                                : 1,
-                          }}
-                        >
-                          {cState.active ? "✓🍺" : "🍺"}
-                        </button>
-                      );
-                    })()}
+                    {chulligansEnabled &&
+                      (() => {
+                        const cState = chulliganButtonState(playerId, i);
+                        return (
+                          <button
+                            onClick={() =>
+                              canEdit && holeUnlocked && toggleChulligan(playerId, i)
+                            }
+                            disabled={!canEdit || !holeUnlocked || cState.locked}
+                            style={{
+                              padding: "4px 7px",
+                              borderRadius: 6,
+                              border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
+                              background: cState.active ? "#fffbeb" : "#fff",
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color:
+                                  (!canEdit || !holeUnlocked) && !cState.active
+                                    ? "#cbd5e1"
+                                  : cState.locked
+                                    ? "#cbd5e1"
+                                    : cState.active
+                                      ? "#d97706"
+                                      : "#94a3b8",
+                              cursor:
+                                !canEdit || !holeUnlocked || cState.locked
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                !canEdit || !holeUnlocked || cState.locked
+                                  ? 0.7
+                                  : 1,
+                            }}
+                          >
+                            {cState.active ? "✓🍺" : "🍺"}
+                          </button>
+                        );
+                      })()}
                   </div>
                   {(isNtp || isLd) && canEdit && (
                     <button
@@ -6300,7 +6336,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                         gap: 6,
                       }}
                     >
-                      {(isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
+                      {(isAdmin || (roundScoringLive && isMine && partnerHoleUnlocked)) &&
                       !isSubmitted(state, roundId, partnerId) ? (
                         <>
                           {pIsPU ? (
@@ -6395,7 +6431,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                             background: "#fafafa",
                           }}
                         >
-                          {!holeUnlocked && !pVal ? "🔒" : pIsPU ? "P" : pVal || "—"}
+                          {!partnerHoleUnlocked && !pVal ? "🔒" : pIsPU ? "P" : pVal || "—"}
                         </div>
                       )}
                     </div>
@@ -6432,44 +6468,46 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       ) : (
                         <div style={{ color: "#d1d5db", fontSize: 11 }}>—</div>
                       )}
-                      {(() => {
-                        const cState = chulliganButtonState(partnerId, i);
-                        const canEditPartner =
-                          (isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
-                          !isSubmitted(state, roundId, partnerId);
-                        return (
-                          <button
-                            onClick={() =>
-                              canEditPartner && toggleChulligan(partnerId, i)
-                            }
-                            disabled={!canEditPartner || cState.locked}
-                            style={{
-                              minWidth: 36,
-                              padding: "4px 6px",
-                              borderRadius: 6,
-                              border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
-                              background: cState.active ? "#fffbeb" : "#fff",
-                              fontSize: 11,
-                              color:
-                                !canEditPartner && !cState.active
-                                  ? "#cbd5e1"
-                                  : cState.locked
+                      {chulligansEnabled &&
+                        (() => {
+                          const cState = chulliganButtonState(partnerId, i);
+                          const canEditPartner =
+                            (isAdmin ||
+                              (roundScoringLive && isMine && partnerHoleUnlocked)) &&
+                            !isSubmitted(state, roundId, partnerId);
+                          return (
+                            <button
+                              onClick={() =>
+                                canEditPartner && toggleChulligan(partnerId, i)
+                              }
+                              disabled={!canEditPartner || cState.locked}
+                              style={{
+                                minWidth: 36,
+                                padding: "4px 6px",
+                                borderRadius: 6,
+                                border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
+                                background: cState.active ? "#fffbeb" : "#fff",
+                                fontSize: 11,
+                                color:
+                                  !canEditPartner && !cState.active
                                     ? "#cbd5e1"
-                                    : cState.active
-                                      ? "#d97706"
-                                      : "#94a3b8",
-                              cursor:
-                                !canEditPartner || cState.locked
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity:
-                                !canEditPartner || cState.locked ? 0.7 : 1,
-                            }}
-                          >
-                            {cState.active ? "✓🍺" : "🍺"}
-                          </button>
-                        );
-                      })()}
+                                    : cState.locked
+                                      ? "#cbd5e1"
+                                      : cState.active
+                                        ? "#d97706"
+                                        : "#94a3b8",
+                                cursor:
+                                  !canEditPartner || cState.locked
+                                    ? "not-allowed"
+                                    : "pointer",
+                                opacity:
+                                  !canEditPartner || cState.locked ? 0.7 : 1,
+                              }}
+                            >
+                              {cState.active ? "✓🍺" : "🍺"}
+                            </button>
+                          );
+                        })()}
                     </div>
                   </div>
                 )}
@@ -6485,7 +6523,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       fontWeight: 600,
                     }}
                   >
-                    Locked until both scores are entered for hole {h.n - 1}.
+                    Locked until the prior hole is scored (hole {h.n - 1}).
                   </div>
                 )}
               </div>
@@ -6504,7 +6542,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
           }}
         >
           <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>
-            Back 9 {myChulligans.back != null ? "🍺" : ""}
+            Back 9{" "}
+            {chulligansEnabled && myChulligans.back != null ? "🍺" : ""}
           </span>
           <span
             style={{
@@ -6887,7 +6926,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         </div>
       );
     }
-    rankings = PLAYERS.map((p) => {
+    rankings = PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id)).map((p) => {
       const sc = state.scores?.[round.id]?.[p.id] || [];
       const holes = sc.filter((s) => holeFilled(s)).length;
       return {
@@ -7395,26 +7434,51 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
                     Individual practice round (no teams)
                   </div>
-                  <div
-                    style={{
-                      marginTop: 4,
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
-                    {round.teeTimes.map((time) => (
-                      <span
-                        key={time}
+                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
+                    {(
+                      round.practiceGroups?.length
+                        ? round.practiceGroups
+                        : round.teeTimes.map(() => [])
+                    ).map((group, idx) => (
+                      <div
+                        key={`${round.id}_practice_${idx}`}
                         style={{
-                          fontSize: 12,
-                          fontWeight: 700,
-                          color: "#2d6a4f",
-                          fontFamily: "'JetBrains Mono',monospace",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: 8,
+                          padding: "8px 10px",
+                          background: "#f8fafc",
                         }}
                       >
-                        {time}
-                      </span>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color: "#166534",
+                            fontFamily: "'JetBrains Mono',monospace",
+                          }}
+                        >
+                          Tee {idx + 1}: {round.teeTimes[idx] || "TBC"}
+                        </div>
+                        {group.length > 0 && (
+                          <div
+                            style={{
+                              marginTop: 4,
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              gap: "2px 10px",
+                            }}
+                          >
+                            {group.map((name) => (
+                              <div
+                                key={`${round.id}_${idx}_${name}`}
+                                style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}
+                              >
+                                • {name}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
