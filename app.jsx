@@ -764,9 +764,8 @@ const ROUNDS = [
     courseName: "The Dunes",
     teeTimes: ["12:33pm", "12:42pm"],
     practiceGroups: [
-      ["Tom Crawford", "Nick Tankard", "Cam Clark", "Lach Taylor"],
-      ["Luke Abi-Hanna", "Callum Hinwood", "James Turner", "Angus Scott"],
-      ["Alex Denning", "Jason McIlwaine", "Chris Green", "James Kelly"],
+      ["Tom Crawford", "Luke Abi-Hanna", "James Turner"],
+      ["Alex Denning", "Callum Hinwood", "Lach Taylor"],
     ],
     isPractice: true,
     includeInCup: false,
@@ -820,6 +819,10 @@ const PRACTICE_PLAYER_IDS = [
   "jturner",
   "lach",
   "callum",
+];
+const PRACTICE_TEAMS = [
+  { id: "practice-team-1", playerIds: ["tom", "luke", "jturner"] },
+  { id: "practice-team-2", playerIds: ["alex", "callum", "lach"] },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -6757,6 +6760,11 @@ function LeaderList({ onSelect }) {
       desc: "Cumulative stableford across 3 rounds",
     },
     { id: "practice", name: "Practice Stableford", desc: "The Dunes" },
+    {
+      id: "practice_teams",
+      name: "Practice 3-Ball Teams",
+      desc: "Best 2 stableford scores count",
+    },
     { id: "d1", name: "Day 1 Stableford", desc: "St Andrews Beach" },
     { id: "d2", name: "Day 2 Stableford", desc: "PK South" },
     { id: "d3", name: "Day 3 Stableford", desc: "PK North" },
@@ -6945,6 +6953,64 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         roundId: round.id,
       };
     }).sort((a, b) => b.score - a.score);
+  } else if (catId === "practice_teams") {
+    const round = ROUNDS.find((r) => r.id === "r0");
+    const course = getCourse(round.courseId);
+    if (!isRoundRevealed(state, round.id, live, isAdmin)) {
+      return (
+        <div>
+          <button onClick={onBack} style={S.backBtn}>
+            ← Back
+          </button>
+          <h2 style={S.sectTitle}>Round locked</h2>
+          <div
+            style={{
+              ...S.card,
+              borderStyle: "dashed",
+              borderColor: "#cbd5e1",
+              background: "#f8fafc",
+            }}
+          >
+            <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
+              This leaderboard is hidden
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+              It will unlock once admin opens scoring for this round.
+            </div>
+          </div>
+        </div>
+      );
+    }
+    rankings = PRACTICE_TEAMS.map((team, idx) => {
+      const playerRows = team.playerIds.map((playerId) => {
+        const sc = state.scores?.[round.id]?.[playerId] || [];
+        return {
+          playerId,
+          score: pStab(
+            sc,
+            course,
+            courseHcp(
+              state.handicaps?.[playerId],
+              course,
+              getTeeKey(state, course.id),
+            ),
+          ),
+          holes: sc.filter((s) => holeFilled(s)).length,
+        };
+      });
+      const counted = [...playerRows].sort((a, b) => b.score - a.score).slice(0, 2);
+      return {
+        id: team.id,
+        name: team.playerIds.map((playerId) => getP(playerId)?.short).join(" / "),
+        score: counted.reduce((sum, player) => sum + player.score, 0),
+        holes: counted.reduce((sum, player) => sum + player.holes, 0),
+        totalHoles: 36,
+        hideAvatar: true,
+        neutralBorder: true,
+        roundId: round.id,
+        sortOrder: idx,
+      };
+    }).sort((a, b) => b.score - a.score || a.sortOrder - b.sortOrder);
   } else if (catId.startsWith("d")) {
     const ri = parseInt(catId[1]) - 1;
     const round = ROUNDS[ri];
@@ -7068,6 +7134,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
   const titles = {
     spinners: "🏆 Spinners Cup",
     practice: "Practice Stableford",
+    practice_teams: "Practice 3-Ball Teams",
     d1: "Day 1 Stableford",
     d2: "Day 2 Stableford",
     d3: "Day 3 Stableford",
@@ -7083,7 +7150,9 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       <h2 style={S.sectTitle}>{titles[catId]}</h2>
       {rankings.map((r, i) => {
         const canOpen = !!(r.roundId && r.matchId && onOpenMatch);
-        const teamBorderColor = live
+        const teamBorderColor = r.neutralBorder
+          ? "#cbd5e1"
+          : live
           ? r.team === "blue"
             ? "#D4A017"
             : "#DC2626"
@@ -7119,6 +7188,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
                 {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
               </div>
               {!hideDailyPlayerPhotos &&
+                !r.hideAvatar &&
                 (r.id && r.id.includes("_") ? (
                   <div
                     style={{
@@ -7432,7 +7502,10 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
-                    Individual practice round (no teams)
+                    Practice round — 2 groups of 3
+                  </div>
+                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                    3-ball teams event: best 2 stableford scores per team count.
                   </div>
                   <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
                     {(
@@ -7457,7 +7530,7 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                             fontFamily: "'JetBrains Mono',monospace",
                           }}
                         >
-                          Tee {idx + 1}: {round.teeTimes[idx] || "TBC"}
+                          Group {idx + 1}: {round.teeTimes[idx] || "TBC"}
                         </div>
                         {group.length > 0 && (
                           <div
