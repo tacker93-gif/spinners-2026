@@ -759,7 +759,7 @@ const ROUNDS = [
   {
     id: "r0",
     num: "Practice",
-    day: "Thursday 26th March",
+    day: "Practice Round",
     courseId: "dunes",
     courseName: "The Dunes",
     teeTimes: ["12:33pm", "12:42pm"],
