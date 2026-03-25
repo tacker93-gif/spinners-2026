@@ -813,6 +813,15 @@ const ROUNDS = [
   },
 ];
 
+const PRACTICE_PLAYER_IDS = [
+  "tom",
+  "alex",
+  "luke",
+  "jturner",
+  "lach",
+  "callum",
+];
+
 // ─── Helpers ─────────────────────────────────────────────────
 function getP(id) {
   return PLAYERS.find((p) => p.id === id);
@@ -6917,7 +6926,7 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
         </div>
       );
     }
-    rankings = PLAYERS.map((p) => {
+    rankings = PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id)).map((p) => {
       const sc = state.scores?.[round.id]?.[p.id] || [];
       const holes = sc.filter((s) => holeFilled(s)).length;
       return {
