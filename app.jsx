@@ -478,10 +478,10 @@ const PLAYERS = [
   { id: "tom", name: "Tom Crawford", short: "Tom", team: "blue" },
   { id: "callum", name: "Callum Hinwood", short: "Callum", team: "blue" },
   { id: "jkelly", name: "James Kelly", short: "J. Kelly", team: "grey" },
-  { id: "jturner", name: "James Turner", short: "J. Turner", team: "grey" },
+  { id: "jturner", name: "James Turner", short: "J. Turner", team: "blue" },
   { id: "chris", name: "Jasper Taylor", short: "Jasper", team: "grey" },
   { id: "luke", name: "Luke Abi-Hanna", short: "Luke", team: "grey" },
-  { id: "alex", name: "Alex Denning", short: "Alex", team: "blue" },
+  { id: "alex", name: "Alex Denning", short: "Alex", team: "grey" },
   { id: "lach", name: "Lach Taylor", short: "Lach", team: "blue" },
   { id: "jason", name: "Jason McIlwaine", short: "Jason", team: "grey" },
   { id: "cam", name: "Cam Clark", short: "Cam", team: "blue" },
@@ -732,7 +732,7 @@ const ROUNDS = [
     courseName: "St Andrews Beach",
     teeTimes: ["11:39am", "11:48am", "11:57am"],
     matches: [
-      { id: "m1", blue: ["callum", "alex"], grey: ["jason", "jturner"] },
+      { id: "m1", blue: ["callum", "jturner"], grey: ["jason", "alex"] },
       { id: "m2", blue: ["nick", "tom"], grey: ["angus", "luke"] },
       { id: "m3", blue: ["cam", "lach"], grey: ["chris", "jkelly"] },
     ],
@@ -745,8 +745,8 @@ const ROUNDS = [
     courseName: "PK South Course",
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
-      { id: "m4", blue: ["tom", "cam"], grey: ["angus", "jturner"] },
-      { id: "m5", blue: ["nick", "alex"], grey: ["jason", "jkelly"] },
+      { id: "m4", blue: ["tom", "cam"], grey: ["angus", "alex"] },
+      { id: "m5", blue: ["nick", "jturner"], grey: ["jason", "jkelly"] },
       { id: "m6", blue: ["callum", "lach"], grey: ["luke", "chris"] },
     ],
   },
@@ -759,8 +759,8 @@ const ROUNDS = [
     teeTimes: ["8:27am", "8:35am", "8:43am"],
     matches: [
       { id: "m7", blue: ["nick", "lach"], grey: ["luke", "jason"] },
-      { id: "m8", blue: ["alex", "cam"], grey: ["angus", "jkelly"] },
-      { id: "m9", blue: ["tom", "callum"], grey: ["jturner", "chris"] },
+      { id: "m8", blue: ["jturner", "cam"], grey: ["angus", "jkelly"] },
+      { id: "m9", blue: ["tom", "callum"], grey: ["alex", "chris"] },
     ],
   },
 ];
