@@ -8495,6 +8495,9 @@ function DailySummaryModal({ summary, onClose }) {
           border: "1px solid #dbeafe",
           padding: 18,
           boxShadow: "0 20px 40px rgba(0,0,0,.25)",
+          maxHeight: "calc(100vh - 32px)",
+          display: "flex",
+          flexDirection: "column",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -8552,6 +8555,10 @@ function DailySummaryModal({ summary, onClose }) {
             color: "#475569",
             lineHeight: 1.65,
             whiteSpace: "pre-wrap",
+            overflowY: "auto",
+            flex: 1,
+            minHeight: 0,
+            paddingRight: 4,
           }}
         >
           {summary.content}
