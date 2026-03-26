@@ -839,7 +839,7 @@ function TeamPairDisplay({
   showBadges = false,
   fontSize = 12,
 }) {
-  const showAvatars = live;
+  const showAvatars = live || PLAYER_PHOTOS_VISIBLE;
   const names = live
     ? ids?.length
       ? ids.map((id) => ({
@@ -917,7 +917,7 @@ const HIDDEN_PLAYER_IMAGE_FILTER =
   "grayscale(100%) contrast(1.35) brightness(0.92) blur(6px)";
 const HIDDEN_PLAYER_IMAGE_OVERLAY =
   "linear-gradient(180deg, rgba(248,250,252,0.08) 0%, rgba(226,232,240,0.45) 44%, rgba(226,232,240,0.96) 68%, rgba(226,232,240,1) 100%)";
-const PLAYER_PHOTOS_VISIBLE = false;
+const PLAYER_PHOTOS_VISIBLE = true;
 
 function PlayerAvatar({
   id,
@@ -9988,12 +9988,16 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                   height: "100%",
                   borderRadius: 14,
                   objectFit: "cover",
-                  objectPosition: live ? "center" : "center 15%",
-                  transform: live ? "none" : "scale(1.22)",
-                  filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
+                  objectPosition: PLAYER_PHOTOS_VISIBLE
+                    ? "center"
+                    : "center 15%",
+                  transform: PLAYER_PHOTOS_VISIBLE ? "none" : "scale(1.22)",
+                  filter: PLAYER_PHOTOS_VISIBLE
+                    ? "none"
+                    : HIDDEN_PLAYER_IMAGE_FILTER,
                 }}
               />
-              {!live && (
+              {!PLAYER_PHOTOS_VISIBLE && (
                 <div
                   aria-hidden="true"
                   style={{
