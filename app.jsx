@@ -1672,6 +1672,43 @@ function pStab(scores, course, dHcp) {
   return t;
 }
 
+function practiceTeamStablefordTotals({ state, round, course, team }) {
+  const playerRows = team.playerIds.map((playerId) => {
+    const scores = state.scores?.[round.id]?.[playerId] || [];
+    const dailyHcp = courseHcp(
+      state.handicaps?.[playerId],
+      course,
+      getTeeKey(state, course.id),
+    );
+    return { playerId, scores, dailyHcp };
+  });
+
+  const holeRows = course.holes.map((hole, holeIdx) => {
+    const counted = playerRows
+      .map((player) => {
+        const gross = player.scores?.[holeIdx] || 0;
+        if (!holeFilled(gross)) return null;
+        return {
+          playerId: player.playerId,
+          pts: sPts(gross, hole.par, hStrokes(player.dailyHcp, hole)),
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.pts - a.pts)
+      .slice(0, 2);
+    return {
+      score: counted.reduce((sum, entry) => sum + entry.pts, 0),
+      countedPlayers: counted.length,
+    };
+  });
+
+  return {
+    score: holeRows.reduce((sum, row) => sum + row.score, 0),
+    holes: holeRows.filter((row) => row.countedPlayers === 2).length,
+    totalHoles: course.holes.length,
+  };
+}
+
 function getPartner(playerId, roundId) {
   const round = ROUNDS.find((r) => r.id === roundId);
   if (!round) return null;
@@ -3951,35 +3988,18 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
 
     const teamRows = practiceCourse
       ? PRACTICE_TEAMS.map((team, idx) => {
-          const playerRows = team.playerIds.map((playerId) => {
-            const sc = state.scores?.[practiceRound.id]?.[playerId] || [];
-            return {
-              playerId,
-              scores: sc,
-              score: pStab(
-                sc,
-                practiceCourse,
-                courseHcp(
-                  state.handicaps?.[playerId],
-                  practiceCourse,
-                  getTeeKey(state, practiceCourse.id),
-                ),
-              ),
-            };
+          const totals = practiceTeamStablefordTotals({
+            state,
+            round: practiceRound,
+            course: practiceCourse,
+            team,
           });
-          const counted = [...playerRows].sort((a, b) => b.score - a.score).slice(0, 2);
-          const teamHoles = practiceCourse.holes.reduce((total, hole, holeIdx) => {
-            const allSubmitted = playerRows.every((playerRow) =>
-              holeFilled(playerRow.scores?.[holeIdx] || 0),
-            );
-            return total + (allSubmitted ? 1 : 0);
-          }, 0);
           return {
             id: team.id,
             rankSeed: idx,
             players: team.playerIds.map((playerId) => getP(playerId)?.short),
-            score: counted.reduce((sum, row) => sum + row.score, 0),
-            holes: teamHoles,
+            score: totals.score,
+            holes: totals.holes,
           };
         }).sort((a, b) => b.score - a.score || a.rankSeed - b.rankSeed)
       : [];
@@ -7356,29 +7376,13 @@ function LeaderView({
       );
     }
     rankings = PRACTICE_TEAMS.map((team, idx) => {
-      const playerRows = team.playerIds.map((playerId) => {
-        const sc = state.scores?.[round.id]?.[playerId] || [];
-        return {
-          playerId,
-          score: pStab(
-            sc,
-            course,
-            courseHcp(
-              state.handicaps?.[playerId],
-              course,
-              getTeeKey(state, course.id),
-            ),
-          ),
-          holes: sc.filter((s) => holeFilled(s)).length,
-        };
-      });
-      const counted = [...playerRows].sort((a, b) => b.score - a.score).slice(0, 2);
+      const totals = practiceTeamStablefordTotals({ state, round, course, team });
       return {
         id: team.id,
         name: team.playerIds.map((playerId) => getP(playerId)?.short).join(" / "),
-        score: counted.reduce((sum, player) => sum + player.score, 0),
-        holes: counted.reduce((sum, player) => sum + player.holes, 0),
-        totalHoles: 36,
+        score: totals.score,
+        holes: totals.holes,
+        totalHoles: totals.totalHoles,
         hideAvatar: true,
         neutralBorder: true,
         roundId: round.id,
