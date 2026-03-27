@@ -1678,31 +1678,49 @@ function matchStatus(state, match, round) {
   const mn = Math.min(...bH, ...gH);
   const abH = bH.map((h) => h - mn),
     agH = gH.map((h) => h - mn);
+  const isRoundOneMatchThree = round.id === "r1" && match.id === "m3";
+  const lachBlueIndex = match.blue.indexOf("lach");
+  const camBlueIndex = match.blue.indexOf("cam");
+  const getStablefordForPlayer = (grossScore, handicapDelta, hole) => {
+    if (!holeFilled(grossScore)) return null;
+    if (grossScore === -1) return 0;
+    return sPts(grossScore, hole.par, hStrokes(handicapDelta, hole));
+  };
+
   let bUp = 0,
     played = 0;
   let clinched = null;
   for (let i = 0; i < 18; i++) {
     const h = course.holes[i];
-    // For each player: pickup(-1) = 99 net (worst possible), >0 = gross - strokes, else not scored
-    const bN = match.blue.map((_, pi) => {
-      const g = bSc[pi]?.[i];
-      if (g === -1) return 99;
-      return g > 0 ? g - hStrokes(abH[pi], h) : null;
-    });
-    const gN = match.grey.map((_, pi) => {
-      const g = gSc[pi]?.[i];
-      if (g === -1) return 99;
-      return g > 0 ? g - hStrokes(agH[pi], h) : null;
-    });
-    // At least one from each team must have a score (including pickup)
-    const blueHasScore = match.blue.some((_, pi) => holeFilled(bSc[pi]?.[i]));
-    const greyHasScore = match.grey.some((_, pi) => holeFilled(gSc[pi]?.[i]));
+    const bPts = match.blue.map((_, pi) =>
+      getStablefordForPlayer(bSc[pi]?.[i], abH[pi], h),
+    );
+    const gPts = match.grey.map((_, pi) =>
+      getStablefordForPlayer(gSc[pi]?.[i], agH[pi], h),
+    );
+
+    const forcedBluePlayerIndex =
+      isRoundOneMatchThree && lachBlueIndex >= 0 && camBlueIndex >= 0
+        ? (i + 1) % 2 === 1
+          ? lachBlueIndex
+          : camBlueIndex
+        : null;
+    const blueTeamHolePts =
+      forcedBluePlayerIndex == null
+        ? bPts.some((v) => v != null)
+          ? Math.max(...bPts.filter((v) => v != null))
+          : null
+        : bPts[forcedBluePlayerIndex];
+    const greyTeamHolePts = gPts.some((v) => v != null)
+      ? Math.max(...gPts.filter((v) => v != null))
+      : null;
+
+    const blueHasScore = blueTeamHolePts != null;
+    const greyHasScore = greyTeamHolePts != null;
     if (blueHasScore && greyHasScore) {
       played++;
-      const bestB = Math.min(...bN.filter((v) => v !== null));
-      const bestG = Math.min(...gN.filter((v) => v !== null));
-      if (bestB < bestG) bUp++;
-      else if (bestG < bestB) bUp--;
+      if (blueTeamHolePts > greyTeamHolePts) bUp++;
+      else if (greyTeamHolePts > blueTeamHolePts) bUp--;
       const rem = 18 - played;
       if (Math.abs(bUp) > rem) {
         clinched = { bUp, played, rem };
