@@ -1678,6 +1678,9 @@ function matchStatus(state, match, round) {
   const mn = Math.min(...bH, ...gH);
   const abH = bH.map((h) => h - mn),
     agH = gH.map((h) => h - mn);
+  const isRoundOneMatchThree = round.id === "r1" && match.id === "m3";
+  const lachBlueIndex = match.blue.indexOf("lach");
+  const camBlueIndex = match.blue.indexOf("cam");
   const getStablefordForPlayer = (grossScore, handicapDelta, hole) => {
     if (!holeFilled(grossScore)) return null;
     if (grossScore === -1) return 0;
@@ -1696,10 +1699,18 @@ function matchStatus(state, match, round) {
       getStablefordForPlayer(gSc[pi]?.[i], agH[pi], h),
     );
 
-    const blueTeamHolePts =
-      bPts.some((v) => v != null)
-        ? Math.max(...bPts.filter((v) => v != null))
+    const forcedBluePlayerIndex =
+      isRoundOneMatchThree && lachBlueIndex >= 0 && camBlueIndex >= 0
+        ? (i + 1) % 2 === 1
+          ? lachBlueIndex
+          : camBlueIndex
         : null;
+    const blueTeamHolePts =
+      forcedBluePlayerIndex == null
+        ? bPts.some((v) => v != null)
+          ? Math.max(...bPts.filter((v) => v != null))
+          : null
+        : bPts[forcedBluePlayerIndex];
     const greyTeamHolePts = gPts.some((v) => v != null)
       ? Math.max(...gPts.filter((v) => v != null))
       : null;
@@ -4348,6 +4359,9 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
   const mn = Math.min(...bH, ...gH);
   const abH = bH.map((h) => h - mn),
     agH = gH.map((h) => h - mn);
+  const isRoundOneMatchThree = round.id === "r1" && match.id === "m3";
+  const lachBlueIndex = match.blue.indexOf("lach");
+  const camBlueIndex = match.blue.indexOf("cam");
   const res = matchStatus(state, match, round);
   let runUp = 0;
 
@@ -4497,9 +4511,21 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
               const gDisplayPts = pD
                 .filter((d) => !d.isB)
                 .map((d) => d.displayPts);
-              const bestBMatch = Math.max(...bMatchPts),
-                bestGMatch = Math.max(...gMatchPts);
-              const bestBDisplay = Math.max(...bDisplayPts),
+              const forcedBluePlayerIndex =
+                isRoundOneMatchThree && lachBlueIndex >= 0 && camBlueIndex >= 0
+                  ? (i + 1) % 2 === 1
+                    ? lachBlueIndex
+                    : camBlueIndex
+                  : null;
+              const bestBMatch =
+                forcedBluePlayerIndex == null
+                  ? Math.max(...bMatchPts)
+                  : bMatchPts[forcedBluePlayerIndex];
+              const bestBDisplay =
+                forcedBluePlayerIndex == null
+                  ? Math.max(...bDisplayPts)
+                  : bDisplayPts[forcedBluePlayerIndex];
+              const bestGMatch = Math.max(...gMatchPts),
                 bestGDisplay = Math.max(...gDisplayPts);
               let hRes = "",
                 resCol = "#94a3b8";
