@@ -7896,6 +7896,10 @@ function DailySummaryModal({ summary, onClose }) {
           border: "1px solid #dbeafe",
           padding: 18,
           boxShadow: "0 20px 40px rgba(0,0,0,.25)",
+          maxHeight: "min(82vh, 680px)",
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -7949,6 +7953,10 @@ function DailySummaryModal({ summary, onClose }) {
         <div
           style={{
             marginTop: 12,
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            paddingRight: 4,
             fontSize: 13,
             color: "#475569",
             lineHeight: 1.65,
@@ -7965,9 +7973,11 @@ function DailySummaryModal({ summary, onClose }) {
             justifyContent: "space-between",
             alignItems: "center",
             marginTop: 14,
+            gap: 12,
+            flexShrink: 0,
           }}
         >
-          <div style={{ fontSize: 11, color: "#94a3b8" }}>
+          <div style={{ fontSize: 11, color: "#94a3b8", flex: 1 }}>
             Find this again later in Info → Weekend Banter Summary, or in the Live Timeline.
           </div>
           <button
