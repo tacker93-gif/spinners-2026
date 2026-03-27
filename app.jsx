@@ -4527,8 +4527,11 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                   : bDisplayPts[forcedBluePlayerIndex];
               const bestGMatch = Math.max(...gMatchPts),
                 bestGDisplay = Math.max(...gDisplayPts);
-              const blueBeatsGrey = bestBDisplay > bestGDisplay;
-              const greyBeatsBlue = bestGDisplay > bestBDisplay;
+              // Match outcome must be based on match-play stableford values
+              // (after match handicap adjustment / forced-player rule), not the
+              // per-player display stableford values.
+              const blueBeatsGrey = bestBMatch > bestGMatch;
+              const greyBeatsBlue = bestGMatch > bestBMatch;
               let hRes = "",
                 resCol = "#94a3b8";
               if (bothScored) {
