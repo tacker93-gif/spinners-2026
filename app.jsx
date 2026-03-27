@@ -4527,14 +4527,16 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                   : bDisplayPts[forcedBluePlayerIndex];
               const bestGMatch = Math.max(...gMatchPts),
                 bestGDisplay = Math.max(...gDisplayPts);
+              const blueBeatsGrey = bestBDisplay > bestGDisplay;
+              const greyBeatsBlue = bestGDisplay > bestBDisplay;
               let hRes = "",
                 resCol = "#94a3b8";
               if (bothScored) {
-                if (bestBMatch > bestGMatch) {
+                if (blueBeatsGrey) {
                   runUp++;
                   hRes = "🟡";
                   resCol = "#B8860B";
-                } else if (bestGMatch > bestBMatch) {
+                } else if (greyBeatsBlue) {
                   runUp--;
                   hRes = "🔴";
                   resCol = "#B91C1C";
@@ -4603,7 +4605,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                       fontWeight: 700,
                       color: "#B8860B",
                       background:
-                        bestBMatch > bestGMatch && bothScored
+                        blueBeatsGrey && bothScored
                           ? "#FFFBEB"
                           : "transparent",
                     }}
@@ -4616,7 +4618,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                       fontWeight: 700,
                       color: "#B91C1C",
                       background:
-                        bestGMatch > bestBMatch && bothScored
+                        greyBeatsBlue && bothScored
                           ? "#FEF2F2"
                           : "transparent",
                     }}
