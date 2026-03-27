@@ -470,37 +470,6 @@ const COURSES = [
       { n: 18, par: 4, si: 5, si2: 23, w: 370, b: 390 },
     ],
   },
-  {
-    id: "dunes",
-    name: "The Dunes",
-    short: "Dunes",
-    par: 72,
-    teeData: {
-      blue: { slope: 141, rating: 74.1, label: "Blue" },
-      white: { slope: 135, rating: 71.2, label: "White" },
-      black: { slope: 148, rating: 75.2, label: "Black" },
-    },
-    holes: [
-      { n: 1, par: 4, si: 1, w: 368, b: 409 },
-      { n: 2, par: 4, si: 5, w: 319, b: 365 },
-      { n: 3, par: 3, si: 18, w: 124, b: 135 },
-      { n: 4, par: 4, si: 15, w: 285, b: 310 },
-      { n: 5, par: 5, si: 10, w: 442, b: 473 },
-      { n: 6, par: 3, si: 17, w: 180, b: 193 },
-      { n: 7, par: 5, si: 14, w: 443, b: 477 },
-      { n: 8, par: 4, si: 3, w: 378, b: 392 },
-      { n: 9, par: 4, si: 9, w: 337, b: 376 },
-      { n: 10, par: 4, si: 12, w: 301, b: 310 },
-      { n: 11, par: 4, si: 16, w: 291, b: 340 },
-      { n: 12, par: 5, si: 2, w: 430, b: 502 },
-      { n: 13, par: 3, si: 7, w: 144, b: 160 },
-      { n: 14, par: 4, si: 8, w: 315, b: 354 },
-      { n: 15, par: 4, si: 6, w: 370, b: 392 },
-      { n: 16, par: 5, si: 11, w: 458, b: 505 },
-      { n: 17, par: 3, si: 4, w: 146, b: 179 },
-      { n: 18, par: 4, si: 13, w: 346, b: 370 },
-    ],
-  },
 ];
 
 const PLAYERS = [
@@ -654,7 +623,6 @@ const PLAYER_BIO_IMAGES = {
 };
 
 const NTP_HOLE_BY_ROUND = {
-  r0: 13,
   r2: 17,
 };
 
@@ -757,21 +725,6 @@ const PK_ROOMS = [
 
 const ROUNDS = [
   {
-    id: "r0",
-    num: "Practice",
-    day: "Practice Round",
-    courseId: "dunes",
-    courseName: "The Dunes",
-    teeTimes: ["12:33pm", "12:42pm"],
-    practiceGroups: [
-      ["Tom Crawford", "Luke Abi-Hanna", "James Turner"],
-      ["Alex Denning", "Callum Hinwood", "Lach Taylor"],
-    ],
-    isPractice: true,
-    includeInCup: false,
-    matches: [],
-  },
-  {
     id: "r1",
     num: 1,
     day: "Friday 27th March",
@@ -793,8 +746,8 @@ const ROUNDS = [
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
       { id: "m4", blue: ["tom", "lach"], grey: ["angus", "alex"] },
-      { id: "m5", blue: ["nick", "jturner"], grey: ["jason", "jkelly"] },
-      { id: "m6", blue: ["callum", "cam"], grey: ["luke", "chris"] },
+      { id: "m5", blue: ["nick", "callum"], grey: ["jason", "jkelly"] },
+      { id: "m6", blue: ["jturner", "cam"], grey: ["luke", "chris"] },
     ],
   },
   {
@@ -805,24 +758,11 @@ const ROUNDS = [
     courseName: "PK North Course",
     teeTimes: ["8:27am", "8:35am", "8:43am"],
     matches: [
-      { id: "m7", blue: ["nick", "cam"], grey: ["luke", "jason"] },
-      { id: "m8", blue: ["jturner", "lach"], grey: ["angus", "jkelly"] },
+      { id: "m7", blue: ["nick", "lach"], grey: ["luke", "jason"] },
+      { id: "m8", blue: ["jturner", "cam"], grey: ["angus", "jkelly"] },
       { id: "m9", blue: ["tom", "callum"], grey: ["alex", "chris"] },
     ],
   },
-];
-
-const PRACTICE_PLAYER_IDS = [
-  "tom",
-  "alex",
-  "luke",
-  "jturner",
-  "lach",
-  "callum",
-];
-const PRACTICE_TEAMS = [
-  { id: "practice-team-1", playerIds: ["tom", "luke", "jturner"] },
-  { id: "practice-team-2", playerIds: ["alex", "callum", "lach"] },
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -839,7 +779,7 @@ function TeamPairDisplay({
   showBadges = false,
   fontSize = 12,
 }) {
-  const showAvatars = live || PLAYER_PHOTOS_VISIBLE;
+  const showAvatars = live;
   const names = live
     ? ids?.length
       ? ids.map((id) => ({
@@ -917,7 +857,6 @@ const HIDDEN_PLAYER_IMAGE_FILTER =
   "grayscale(100%) contrast(1.35) brightness(0.92) blur(6px)";
 const HIDDEN_PLAYER_IMAGE_OVERLAY =
   "linear-gradient(180deg, rgba(248,250,252,0.08) 0%, rgba(226,232,240,0.45) 44%, rgba(226,232,240,0.96) 68%, rgba(226,232,240,1) 100%)";
-const PLAYER_PHOTOS_VISIBLE = true;
 
 function PlayerAvatar({
   id,
@@ -929,8 +868,7 @@ function PlayerAvatar({
   const player = getP(id);
   const src = PLAYER_PHOTOS[id];
   const teamColor = player?.team === "blue" ? "#D4A017" : "#DC2626";
-  const avatarLive = live && PLAYER_PHOTOS_VISIBLE;
-  const borderColor = avatarLive && border ? teamColor : "#d1d5db";
+  const borderColor = live && border ? teamColor : "#d1d5db";
   const initials = (player?.name || "?")
     .split(" ")
     .map((part) => part[0])
@@ -1018,14 +956,14 @@ function PlayerAvatar({
             borderRadius: "50%",
             border: `2px solid ${borderColor}`,
             objectFit: "cover",
-            objectPosition: avatarLive ? "center" : "center 18%",
-            transform: avatarLive ? "none" : "scale(1.18)",
+            objectPosition: live ? "center" : "center 18%",
+            transform: live ? "none" : "scale(1.18)",
             flexShrink: 0,
-            filter: avatarLive ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
+            filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
           }}
         />
       )}
-      {!avatarLive && visible && !failed && (
+      {!live && visible && !failed && (
         <div
           aria-hidden="true"
           style={{
@@ -1672,43 +1610,6 @@ function pStab(scores, course, dHcp) {
   return t;
 }
 
-function practiceTeamStablefordTotals({ state, round, course, team }) {
-  const playerRows = team.playerIds.map((playerId) => {
-    const scores = state.scores?.[round.id]?.[playerId] || [];
-    const dailyHcp = courseHcp(
-      state.handicaps?.[playerId],
-      course,
-      getTeeKey(state, course.id),
-    );
-    return { playerId, scores, dailyHcp };
-  });
-
-  const holeRows = course.holes.map((hole, holeIdx) => {
-    const counted = playerRows
-      .map((player) => {
-        const gross = player.scores?.[holeIdx] || 0;
-        if (!holeFilled(gross)) return null;
-        return {
-          playerId: player.playerId,
-          pts: sPts(gross, hole.par, hStrokes(player.dailyHcp, hole)),
-        };
-      })
-      .filter(Boolean)
-      .sort((a, b) => b.pts - a.pts)
-      .slice(0, 2);
-    return {
-      score: counted.reduce((sum, entry) => sum + entry.pts, 0),
-      countedPlayers: counted.length,
-    };
-  });
-
-  return {
-    score: holeRows.reduce((sum, row) => sum + row.score, 0),
-    holes: holeRows.filter((row) => row.countedPlayers === 2).length,
-    totalHoles: course.holes.length,
-  };
-}
-
 function getPartner(playerId, roundId) {
   const round = ROUNDS.find((r) => r.id === roundId);
   if (!round) return null;
@@ -1757,10 +1658,6 @@ function findMatchByTeam(roundId, teamIds) {
   );
 }
 
-function getPracticeTeamByPlayer(playerId) {
-  return PRACTICE_TEAMS.find((team) => team.playerIds.includes(playerId)) || null;
-}
-
 function isSubmitted(state, roundId, playerId) {
   return !!state.submitted?.[roundId]?.[playerId];
 }
@@ -1786,28 +1683,26 @@ function matchStatus(state, match, round) {
   let clinched = null;
   for (let i = 0; i < 18; i++) {
     const h = course.holes[i];
-    // Match play hole result is based on each side's best stableford score.
-    // Pickup/unscored holes contribute 0 unless the partner records points.
-    const bPts = match.blue.map((_, pi) => {
+    // For each player: pickup(-1) = 99 net (worst possible), >0 = gross - strokes, else not scored
+    const bN = match.blue.map((_, pi) => {
       const g = bSc[pi]?.[i];
-      if (!holeFilled(g)) return null;
-      return isPickup(g) ? 0 : sPts(g, h.par, hStrokes(abH[pi], h));
+      if (g === -1) return 99;
+      return g > 0 ? g - hStrokes(abH[pi], h) : null;
     });
-    const gPts = match.grey.map((_, pi) => {
+    const gN = match.grey.map((_, pi) => {
       const g = gSc[pi]?.[i];
-      if (!holeFilled(g)) return null;
-      return isPickup(g) ? 0 : sPts(g, h.par, hStrokes(agH[pi], h));
+      if (g === -1) return 99;
+      return g > 0 ? g - hStrokes(agH[pi], h) : null;
     });
     // At least one from each team must have a score (including pickup)
     const blueHasScore = match.blue.some((_, pi) => holeFilled(bSc[pi]?.[i]));
     const greyHasScore = match.grey.some((_, pi) => holeFilled(gSc[pi]?.[i]));
     if (blueHasScore && greyHasScore) {
       played++;
-      const bestB =
-        Math.max(...bPts.filter((v) => v !== null));
-      const bestG = Math.max(...gPts.filter((v) => v !== null));
-      if (bestB > bestG) bUp++;
-      else if (bestG > bestB) bUp--;
+      const bestB = Math.min(...bN.filter((v) => v !== null));
+      const bestG = Math.min(...gN.filter((v) => v !== null));
+      if (bestB < bestG) bUp++;
+      else if (bestG < bestB) bUp--;
       const rem = 18 - played;
       if (Math.abs(bUp) > rem) {
         clinched = { bUp, played, rem };
@@ -1875,9 +1770,8 @@ const DEFAULT_STATE = {
   sledgeReads: {},
   summaryReads: {},
   eventLive: false,
-  scoringOpenWhenHidden: false,
-  roundScoringLive: { r0: false, r1: true, r2: false, r3: false },
-  tees: { standrews: "white", pk_south: "white", pk_north: "white", dunes: "blue" },
+  roundScoringLive: { r1: true, r2: false, r3: false },
+  tees: { standrews: "white", pk_south: "white", pk_north: "white" },
   teamNames: { ...DEFAULT_TEAM_NAMES },
 };
 
@@ -1940,7 +1834,6 @@ function normalizeState(raw) {
     ...(normalizedRaw.roundScoringLive || {}),
   };
   next.tees = { ...DEFAULT_STATE.tees, ...(normalizedRaw.tees || {}) };
-  next.scoringOpenWhenHidden = !!normalizedRaw.scoringOpenWhenHidden;
   next.teamNames = { ...DEFAULT_TEAM_NAMES, ...(normalizedRaw.teamNames || {}) };
   next.eventLive = !!normalizedRaw.eventLive;
   return next;
@@ -1969,7 +1862,7 @@ function toRemoteState(state) {
   return next;
 }
 
-const SLEDGE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+const SLEDGE_COOLDOWN_MS = 20 * 60 * 1000;
 const SLEDGE_TTL_MS = 60 * 60 * 1000;
 
 function pickSledge(lines) {
@@ -2247,7 +2140,7 @@ function buildSledgeMessage(type, context) {
 }
 
 function canPushSledgeForPlayers(state, roundId, playerIds, now = Date.now()) {
-  if (!state?.eventLive && !isPracticeRoundLive(state)) return false;
+  if (!state?.eventLive) return false;
   if (!state.sledgeMeta) state.sledgeMeta = {};
   const ids = [...new Set((playerIds || []).filter(Boolean))];
   if (ids.length === 0) return true;
@@ -2276,8 +2169,7 @@ function pushSledgeFeed(
   state,
   { roundId, playerId, playerIds, hole, catalystKey, message },
 ) {
-  if ((!state?.eventLive && !isPracticeRoundLive(state)) || !message)
-    return false;
+  if (!state?.eventLive || !message) return false;
   if (!state.sledgeFeed) state.sledgeFeed = [];
 
   const now = Date.now();
@@ -2310,12 +2202,7 @@ function maybePushScoreSledge(
   state,
   { roundId, playerId, holeIdx, prevVal, nextVal },
 ) {
-  if (
-    (!state?.eventLive && !isPracticeRoundLive(state)) ||
-    nextVal === prevVal ||
-    !holeFilled(nextVal)
-  )
-    return;
+  if (!state?.eventLive || nextVal === prevVal || !holeFilled(nextVal)) return;
   const round = ROUNDS.find((r) => r.id === roundId);
   if (!round) return;
   const course = getCourse(round.courseId);
@@ -2426,13 +2313,9 @@ function isRoundScoringLive(state, roundId) {
   return !!state?.roundScoringLive?.[roundId];
 }
 
-function isPracticeRoundLive(state) {
-  return isRoundScoringLive(state, "r0");
-}
-
 function isRoundRevealed(state, roundId, live, isAdmin) {
   if (isAdmin) return true;
-  if (!live && !state?.scoringOpenWhenHidden) return false;
+  if (!live) return false;
   return isRoundScoringLive(state, roundId);
 }
 
@@ -2450,9 +2333,7 @@ function getTeeLabel(course, teeKey) {
   return course.teeData[teeKey]?.label || "White";
 }
 function getM(hole, teeKey) {
-  if (teeKey === "blue") return hole.b;
-  if (teeKey === "black") return hole.black || hole.b;
-  return hole.w;
+  return teeKey === "blue" ? hole.b : hole.w;
 }
 
 function isRoundFullySubmitted(state, roundId) {
@@ -2461,8 +2342,12 @@ function isRoundFullySubmitted(state, roundId) {
 
 function canEnterHoleScores(state, roundId, playerId, holeIdx) {
   if (holeIdx <= 0) return true;
-  const prevScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
-  return holeFilled(prevScore);
+  const partnerId = getPartner(playerId, roundId);
+  const prevPlayerScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
+  const prevPartnerScore = partnerId
+    ? state.scores?.[roundId]?.[partnerId]?.[holeIdx - 1] || 0
+    : 1;
+  return holeFilled(prevPlayerScore) && holeFilled(prevPartnerScore);
 }
 
 function getRoundLeaderboard(state, round) {
@@ -2486,7 +2371,6 @@ function getOverallLeaderboard(state) {
   return PLAYERS.map((p) => {
     let total = 0;
     ROUNDS.forEach((r) => {
-      if (r.includeInCup === false) return;
       const course = getCourse(r.courseId);
       const scores = state.scores?.[r.id]?.[p.id] || [];
       total += pStab(
@@ -3002,10 +2886,7 @@ function App() {
       />
     );
 
-  const openScoringBeforeLive = !!state.scoringOpenWhenHidden;
   const live = !!state.eventLive || isAdmin;
-  const sledgeLive = live || isPracticeRoundLive(state);
-  const scoringTabOpen = live || openScoringBeforeLive;
 
   return (
     <div style={S.app}>
@@ -3045,7 +2926,7 @@ function App() {
             state={state}
             cur={cur}
             upd={upd}
-            onMatch={(id, roundId) => setSub({ t: "m", id, roundId: roundId || null })}
+            onMatch={(id) => setSub({ t: "m", id })}
             live={live}
             isAdmin={isAdmin}
           />
@@ -3058,7 +2939,6 @@ function App() {
               upd={upd}
               isAdmin={isAdmin}
               matchId={sub.id}
-              roundId={sub.roundId}
               onBack={() => setSub(null)}
             />
           ) : (
@@ -3070,7 +2950,7 @@ function App() {
           ))}
         {tab === "scores" &&
           !sub &&
-          (scoringTabOpen ? (
+          (live ? (
             <ScoresList
               state={state}
               cur={cur}
@@ -3080,7 +2960,7 @@ function App() {
           ) : (
             <LockedPage
               title="Scoring"
-              msg="Scoring will open once admin enables open scoring."
+              msg="Scoring will open when the event goes live."
               icon="⛳"
             />
           ))}
@@ -3096,7 +2976,7 @@ function App() {
           />
         )}
         {tab === "sledge" && !sub && (
-          <SledgeFeedPage state={state} cur={cur} live={sledgeLive} />
+          <SledgeFeedPage state={state} cur={cur} live={live} />
         )}
         {tab === "leaders" && !sub && (
           <LeaderList onSelect={(id) => setSub({ t: "lb", id })} />
@@ -3112,24 +2992,6 @@ function App() {
               setTab("cup");
               setSub({ t: "m", id: matchId, roundId });
             }}
-            onOpenPracticeScorecard={({ roundId, practiceTeamId, focusPlayerId }) => {
-              setSub({
-                t: "practice_sc",
-                roundId,
-                practiceTeamId,
-                focusPlayerId: focusPlayerId || null,
-                fromCatId: sub.id,
-              });
-            }}
-          />
-        )}
-        {tab === "leaders" && sub?.t === "practice_sc" && (
-          <PracticeRoundScorecardView
-            state={state}
-            roundId={sub.roundId}
-            practiceTeamId={sub.practiceTeamId}
-            focusPlayerId={sub.focusPlayerId}
-            onBack={() => setSub({ t: "lb", id: sub.fromCatId || "practice" })}
           />
         )}
         {tab === "schedule" && !sub && (
@@ -3141,10 +3003,6 @@ function App() {
             <MatchSchedule
               state={state}
               isAdmin={isAdmin}
-              onOpenMatch={(matchId) => {
-                setTab("cup");
-                setSub({ t: "m", id: matchId });
-              }}
               onBack={() => setSub(null)}
             />
           )}
@@ -3968,180 +3826,6 @@ function LockedMessage({ title, msg, onBack }) {
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
-  if (!state?.eventLive) {
-    const practiceRound = ROUNDS.find((r) => r.id === "r0");
-    const practiceCourse = practiceRound ? getCourse(practiceRound.courseId) : null;
-
-    const individualRows = practiceCourse
-      ? PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id))
-          .map((p) => {
-            const sc = state.scores?.[practiceRound.id]?.[p.id] || [];
-            return {
-              ...p,
-              score: pStab(
-                sc,
-                practiceCourse,
-                courseHcp(
-                  state.handicaps?.[p.id],
-                  practiceCourse,
-                  getTeeKey(state, practiceCourse.id),
-                ),
-              ),
-              holes: sc.filter((s) => holeFilled(s)).length,
-            };
-          })
-          .sort((a, b) => b.score - a.score)
-      : [];
-
-    const teamRows = practiceCourse
-      ? PRACTICE_TEAMS.map((team, idx) => {
-          const totals = practiceTeamStablefordTotals({
-            state,
-            round: practiceRound,
-            course: practiceCourse,
-            team,
-          });
-          return {
-            id: team.id,
-            rankSeed: idx,
-            players: team.playerIds.map((playerId) => getP(playerId)?.short),
-            score: totals.score,
-            holes: totals.holes,
-          };
-        }).sort((a, b) => b.score - a.score || a.rankSeed - b.rankSeed)
-      : [];
-
-    const rankLabel = (idx) =>
-      idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx + 1;
-
-    return (
-      <div>
-        <div style={{ ...S.card, background: "#f0f9ff", borderColor: "#bfdbfe" }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: "#1d4ed8" }}>
-            Pre-live view
-          </div>
-          <div
-            style={{
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#1e293b",
-              marginTop: 2,
-            }}
-          >
-            Practice Round Leaderboards
-          </div>
-          <div style={{ fontSize: 11, color: "#475569", marginTop: 4, lineHeight: 1.45 }}>
-            The app is currently in pre-live mode, so this page shows live practice
-            standings for both individual and 3-ball team events.
-          </div>
-        </div>
-
-        <h2 style={{ ...S.sectTitle, marginTop: 16, marginBottom: 10 }}>
-          Practice Stableford
-        </h2>
-        {individualRows.map((row, idx) => (
-          <div
-            key={row.id}
-            style={{
-              ...S.card,
-              marginBottom: 8,
-              borderLeft: `3px solid ${idx === 0 ? "#16a34a" : "#cbd5e1"}`,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 24,
-                  textAlign: "center",
-                  fontSize: idx < 3 ? 16 : 13,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                }}
-              >
-                {rankLabel(idx)}
-              </div>
-              <PlayerAvatar id={row.id} size={LEADER_SINGLE_PHOTO_SIZE} live={true} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1e293b" }}>
-                  {row.name}
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: "#2d6a4f",
-                    fontFamily: "'JetBrains Mono',monospace",
-                  }}
-                >
-                  {row.score}
-                </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>({row.holes}/18)</div>
-              </div>
-            </div>
-          </div>
-        ))}
-
-        <h2 style={{ ...S.sectTitle, marginTop: 16, marginBottom: 10 }}>
-          Practice 3-Ball Teams
-        </h2>
-        {teamRows.map((row, idx) => (
-          <div
-            key={row.id}
-            style={{
-              ...S.card,
-              marginBottom: 8,
-              borderLeft: `3px solid ${idx === 0 ? "#16a34a" : "#cbd5e1"}`,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                style={{
-                  width: 24,
-                  textAlign: "center",
-                  fontSize: idx < 3 ? 16 : 13,
-                  fontWeight: 700,
-                  color: "#94a3b8",
-                }}
-              >
-                {rankLabel(idx)}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "#1e293b",
-                    lineHeight: 1.25,
-                  }}
-                >
-                  {row.players.join(" / ")}
-                </div>
-                <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>
-                  Best 2 scores count
-                </div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div
-                  style={{
-                    fontSize: 16,
-                    fontWeight: 700,
-                    color: "#2d6a4f",
-                    fontFamily: "'JetBrains Mono',monospace",
-                  }}
-                >
-                  {row.score}
-                </div>
-                <div style={{ fontSize: 10, color: "#94a3b8" }}>({row.holes}/18)</div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
   let bT = 0,
     gT = 0,
     bLive = 0,
@@ -4504,7 +4188,9 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
       </div>
 
       {ROUNDS.map((round) => {
-        const showMatchDetails = isAdmin || !!state?.eventLive;
+        const roundScoringOpen = isRoundScoringLive(state, round.id);
+        const showMatchDetails =
+          isAdmin || (!!state?.eventLive && roundScoringOpen);
         return (
           <div key={round.id} style={{ marginBottom: 20 }}>
             <div style={{ marginBottom: 8 }}>
@@ -4514,6 +4200,11 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
               <div style={{ fontSize: 11, color: "#94a3b8" }}>
                 {round.courseName}
               </div>
+              {!showMatchDetails && !isAdmin && state?.eventLive && (
+                <div style={{ fontSize: 10, color: "#b45309", marginTop: 2 }}>
+                  Round details are hidden until open scoring is enabled.
+                </div>
+              )}
             </div>
 
             {round.matches.map((match, mi) => {
@@ -4557,7 +4248,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
                 <button
                   key={match.id}
                   onClick={() => {
-                    if (showMatchDetails) onMatch(match.id, round.id);
+                    if (showMatchDetails) onMatch(match.id);
                   }}
                   style={{
                     ...S.card,
@@ -4624,30 +4315,16 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
 }
 
 // ─── Match View ──────────────────────────────────────────────
-function MatchView({ state, upd, isAdmin, matchId, roundId, onBack }) {
-  let match = null;
-  let round = null;
-
-  if (roundId) {
-    const scopedRound = ROUNDS.find((r) => r.id === roundId);
-    const scopedMatch = scopedRound?.matches?.find((x) => x.id === matchId);
-    if (scopedRound && scopedMatch) {
-      round = scopedRound;
-      match = scopedMatch;
+function MatchView({ state, upd, isAdmin, matchId, onBack }) {
+  let match, round;
+  for (const r of ROUNDS) {
+    const m = r.matches.find((x) => x.id === matchId);
+    if (m) {
+      match = m;
+      round = r;
+      break;
     }
   }
-
-  if (!match || !round) {
-    for (const r of ROUNDS) {
-      const m = r.matches.find((x) => x.id === matchId);
-      if (m) {
-        match = m;
-        round = r;
-        break;
-      }
-    }
-  }
-
   if (!match) return null;
   const course = getCourse(round.courseId);
   const allIds = [...match.blue, ...match.grey];
@@ -4779,7 +4456,6 @@ function MatchView({ state, upd, isAdmin, matchId, roundId, onBack }) {
           </thead>
           <tbody>
             {course.holes.map((h, i) => {
-              const holeNumber = i + 1;
               const pD = allIds.map((id, pi) => {
                 const isB = match.blue.includes(id);
                 const adjH = isB
@@ -4814,29 +4490,9 @@ function MatchView({ state, upd, isAdmin, matchId, roundId, onBack }) {
               const gDisplayPts = pD
                 .filter((d) => !d.isB)
                 .map((d) => d.displayPts);
-              const forcedBlueId = getForcedMatchPlayScorerId(
-                round,
-                match,
-                "blue",
-                holeNumber,
-              );
-              const forcedBlueMatchPts =
-                forcedBlueId != null
-                  ? pD.find(
-                      (_, idx) => allIds[idx] === forcedBlueId,
-                    )?.matchPts
-                  : null;
-              const forcedBlueDisplayPts =
-                forcedBlueId != null
-                  ? pD.find(
-                      (_, idx) => allIds[idx] === forcedBlueId,
-                    )?.displayPts
-                  : null;
-              const bestBMatch =
-                  forcedBlueMatchPts ?? Math.max(...bMatchPts),
+              const bestBMatch = Math.max(...bMatchPts),
                 bestGMatch = Math.max(...gMatchPts);
-              const bestBDisplay =
-                  forcedBlueDisplayPts ?? Math.max(...bDisplayPts),
+              const bestBDisplay = Math.max(...bDisplayPts),
                 bestGDisplay = Math.max(...gDisplayPts);
               let hRes = "",
                 resCol = "#94a3b8";
@@ -5389,157 +5045,6 @@ function ScoresList({ state, cur, isAdmin, onSelect }) {
   );
 }
 
-function PracticeRoundScorecardView({
-  state,
-  roundId,
-  practiceTeamId,
-  focusPlayerId,
-  onBack,
-}) {
-  const round = ROUNDS.find((r) => r.id === roundId);
-  const team = PRACTICE_TEAMS.find((t) => t.id === practiceTeamId);
-  if (!round || !team) return null;
-  const course = getCourse(round.courseId);
-  const tk = getTeeKey(state, course.id);
-  const players = team.playerIds.map((playerId) => ({
-    playerId,
-    short: getP(playerId)?.short || "???",
-    dailyHcp: courseHcp(state.handicaps?.[playerId], course, tk) || 0,
-    scores: state.scores?.[round.id]?.[playerId] || [],
-  }));
-  const holeData = course.holes.map((h, i) => {
-    const entries = players.map((player) => {
-      const gross = player.scores[i] || 0;
-      const filled = holeFilled(gross);
-      const isPU = isPickup(gross);
-      const pts =
-        gross > 0 || isPU ? sPts(gross, h.par, hStrokes(player.dailyHcp, h)) : 0;
-      return { ...player, gross, filled, isPU, pts };
-    });
-    const taken = [...entries]
-      .filter((entry) => entry.filled)
-      .sort((a, b) => b.pts - a.pts)
-      .slice(0, 2);
-    const takenIds = new Set(taken.map((entry) => entry.playerId));
-    const teamScore = taken.reduce((sum, entry) => sum + entry.pts, 0);
-    return { h, entries, takenIds, teamScore };
-  });
-
-  return (
-    <div>
-      <button onClick={onBack} style={S.backBtn}>
-        ← Back
-      </button>
-      <h2 style={S.sectTitle}>Practice Team Scorecard</h2>
-      <p style={{ fontSize: 12, color: "#94a3b8", marginBottom: 12 }}>
-        {team.playerIds.map((playerId) => getP(playerId)?.short).join(" / ")} ·{" "}
-        {round.courseName}
-        {focusPlayerId ? ` · Opened from ${getP(focusPlayerId)?.short}` : ""}
-      </p>
-      <div
-        style={{
-          ...S.card,
-          borderColor: "#bbf7d0",
-          background: "#f0fdf4",
-          marginBottom: 12,
-        }}
-      >
-        <div style={{ fontSize: 11, color: "#166534", fontWeight: 700 }}>
-          Highlighted player scores are the two counted for team Stableford.
-        </div>
-      </div>
-      <div style={{ overflowX: "auto" }}>
-        <table
-          style={{
-            width: "100%",
-            borderCollapse: "collapse",
-            fontSize: 11,
-            fontFamily: "'DM Sans',sans-serif",
-          }}
-        >
-          <thead>
-            <tr style={{ background: "#f8faf8" }}>
-              <th style={S.th}>Hole</th>
-              <th style={S.th}>Par</th>
-              {players.map((player) => (
-                <th key={player.playerId} style={{ ...S.th, fontSize: 9 }}>
-                  {player.short}
-                </th>
-              ))}
-              <th style={{ ...S.th, fontSize: 9, color: "#166534" }}>Team</th>
-            </tr>
-          </thead>
-          <tbody>
-            {holeData.map(({ h, entries, takenIds, teamScore }) => (
-              <tr key={h.n} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={S.td}>{h.n}</td>
-                <td style={{ ...S.td, color: "#94a3b8" }}>{h.par}</td>
-                {entries.map((entry) => (
-                  <td
-                    key={`${h.n}_${entry.playerId}`}
-                    style={{
-                      ...S.td,
-                      background: takenIds.has(entry.playerId)
-                        ? "#ecfdf5"
-                        : "transparent",
-                    }}
-                  >
-                    {entry.isPU ? (
-                      <div>
-                        <div style={{ fontWeight: 600, color: "#94a3b8" }}>P</div>
-                        <div style={{ fontSize: 8, color: "#94a3b8" }}>0pts</div>
-                      </div>
-                    ) : entry.gross > 0 ? (
-                      <div>
-                        <div style={{ fontWeight: 600, color: "#1e293b" }}>
-                          {entry.gross}
-                        </div>
-                        <div
-                          style={{
-                            fontSize: 8,
-                            color: sColor(entry.pts),
-                            fontWeight: 600,
-                          }}
-                        >
-                          {entry.pts}pts
-                        </div>
-                      </div>
-                    ) : (
-                      <span style={{ color: "#d1d5db" }}>—</span>
-                    )}
-                  </td>
-                ))}
-                <td
-                  style={{
-                    ...S.td,
-                    fontWeight: 700,
-                    color: "#166534",
-                    background: takenIds.size === 2 ? "#dcfce7" : "transparent",
-                  }}
-                >
-                  {takenIds.size ? teamScore : "—"}
-                </td>
-              </tr>
-            ))}
-            <tr style={{ borderTop: "2px solid #e2e8f0", background: "#f8fafc" }}>
-              <td style={{ ...S.td, fontWeight: 700 }}>Total</td>
-              <td style={{ ...S.td, color: "#94a3b8" }}>—</td>
-              {players.map((player) => (
-                <td key={`total_${player.playerId}`} style={{ ...S.td, fontWeight: 700 }}>
-                  {pStab(player.scores, course, player.dailyHcp)}
-                </td>
-              ))}
-              <td style={{ ...S.td, fontWeight: 800, color: "#166534" }}>
-                {holeData.reduce((sum, row) => sum + row.teamScore, 0)}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
-
 // ─── Score Entry ─────────────────────────────────────────────
 function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   const [confirmSubmit, setConfirmSubmit] = useState(false);
@@ -5577,7 +5082,6 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
     ldH = getLdHole(round.courseId);
   const ntpKey = `${roundId}_ntp`,
     ldKey = `${roundId}_ld`;
-  const chulligansEnabled = !round.isPractice;
   const myChulligans = getChulliganRecord(state, roundId, playerId);
 
   let tPts = 0,
@@ -5635,7 +5139,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   };
 
   const setScore = (pid, holeIdx, val) => {
-    if (!isAdmin && !canEnterHoleScores(state, roundId, pid, holeIdx))
+    if (!isAdmin && !canEnterHoleScores(state, roundId, playerId, holeIdx))
       return;
     upd((s) => {
       if (!s.scores[roundId]) s.scores[roundId] = {};
@@ -5653,7 +5157,6 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
   };
 
   const toggleChulligan = (pid, holeIdx) => {
-    if (!chulligansEnabled) return;
     const nine = holeIdx < 9 ? "front" : "back";
     upd((s) => {
       if (!s.chulligans) s.chulligans = {};
@@ -6122,15 +5625,11 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         <div>
           <h2 style={{ ...S.sectTitle, marginBottom: 2 }}>
             {player?.name}{" "}
-            {chulligansEnabled
-              ? chulliganBadges(getChulliganCount(state, roundId, playerId))
-              : ""}
+            {chulliganBadges(getChulliganCount(state, roundId, playerId))}
           </h2>
-          {chulligansEnabled && (
-            <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
-              🍺 Chulligans: {getChulliganCount(state, roundId, playerId)}/2
-            </div>
-          )}
+          <div style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
+            🍺 Chulligans: {getChulliganCount(state, roundId, playerId)}/2
+          </div>
           <p style={{ fontSize: 12, color: "#94a3b8", margin: 0 }}>
             {round.courseName} · {round.day}
           </p>
@@ -6187,15 +5686,11 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         >
           <span style={{ fontSize: 12, fontWeight: 600, color: "#B8860B" }}>
             👥 {partner.short}{" "}
-            {chulligansEnabled
-              ? chulliganBadges(getChulliganCount(state, roundId, partnerId))
-              : ""}
+            {chulliganBadges(getChulliganCount(state, roundId, partnerId))}
           </span>
-          {chulligansEnabled && (
-            <span style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
-              🍺 {getChulliganCount(state, roundId, partnerId)}/2
-            </span>
-          )}
+          <span style={{ fontSize: 10, color: "#b45309", fontWeight: 700 }}>
+            🍺 {getChulliganCount(state, roundId, partnerId)}/2
+          </span>
           <span
             style={{
               marginLeft: "auto",
@@ -6239,7 +5734,8 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
             fontWeight: 600,
           }}
         >
-          Enter hole {firstLockedHoleIdx} before moving to hole{" "}
+          Finish both your score and {partner?.short || "your partner"}'s score
+          on hole {firstLockedHoleIdx} before moving to hole{" "}
           {firstLockedHoleIdx + 1}.
         </div>
       )}
@@ -6300,9 +5796,6 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         {course.holes.map((h, i) => {
           const holeUnlocked =
             isAdmin || canEnterHoleScores(state, roundId, playerId, i);
-          const partnerHoleUnlocked = partnerId
-            ? isAdmin || canEnterHoleScores(state, roundId, partnerId, i)
-            : false;
           const val = scores[i] || 0;
           const isPU = isPickup(val);
           const strk = hStrokes(dH, h);
@@ -6346,8 +5839,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                   <span
                     style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}
                   >
-                    Front 9{" "}
-                    {chulligansEnabled && myChulligans.front != null ? "🍺" : ""}
+                    Front 9 {myChulligans.front != null ? "🍺" : ""}
                   </span>
                   <span
                     style={{
@@ -6616,44 +6108,43 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                     ) : (
                       <div style={{ color: "#d1d5db" }}>—</div>
                     )}
-                    {chulligansEnabled &&
-                      (() => {
-                        const cState = chulliganButtonState(playerId, i);
-                        return (
-                          <button
-                            onClick={() =>
-                              canEdit && holeUnlocked && toggleChulligan(playerId, i)
-                            }
-                            disabled={!canEdit || !holeUnlocked || cState.locked}
-                            style={{
-                              padding: "4px 7px",
-                              borderRadius: 6,
-                              border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
-                              background: cState.active ? "#fffbeb" : "#fff",
-                              fontSize: 12,
-                              fontWeight: 700,
-                              color:
-                                  (!canEdit || !holeUnlocked) && !cState.active
-                                    ? "#cbd5e1"
-                                  : cState.locked
-                                    ? "#cbd5e1"
-                                    : cState.active
-                                      ? "#d97706"
-                                      : "#94a3b8",
-                              cursor:
-                                !canEdit || !holeUnlocked || cState.locked
-                                  ? "not-allowed"
-                                  : "pointer",
-                              opacity:
-                                !canEdit || !holeUnlocked || cState.locked
-                                  ? 0.7
-                                  : 1,
-                            }}
-                          >
-                            {cState.active ? "✓🍺" : "🍺"}
-                          </button>
-                        );
-                      })()}
+                    {(() => {
+                      const cState = chulliganButtonState(playerId, i);
+                      return (
+                        <button
+                          onClick={() =>
+                            canEdit && holeUnlocked && toggleChulligan(playerId, i)
+                          }
+                          disabled={!canEdit || !holeUnlocked || cState.locked}
+                          style={{
+                            padding: "4px 7px",
+                            borderRadius: 6,
+                            border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
+                            background: cState.active ? "#fffbeb" : "#fff",
+                            fontSize: 12,
+                            fontWeight: 700,
+                            color:
+                                (!canEdit || !holeUnlocked) && !cState.active
+                                  ? "#cbd5e1"
+                                : cState.locked
+                                  ? "#cbd5e1"
+                                  : cState.active
+                                    ? "#d97706"
+                                    : "#94a3b8",
+                            cursor:
+                              !canEdit || !holeUnlocked || cState.locked
+                                ? "not-allowed"
+                                : "pointer",
+                            opacity:
+                              !canEdit || !holeUnlocked || cState.locked
+                                ? 0.7
+                                : 1,
+                          }}
+                        >
+                          {cState.active ? "✓🍺" : "🍺"}
+                        </button>
+                      );
+                    })()}
                   </div>
                   {(isNtp || isLd) && canEdit && (
                     <button
@@ -6758,7 +6249,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                         gap: 6,
                       }}
                     >
-                      {(isAdmin || (roundScoringLive && isMine && partnerHoleUnlocked)) &&
+                      {(isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
                       !isSubmitted(state, roundId, partnerId) ? (
                         <>
                           {pIsPU ? (
@@ -6853,7 +6344,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                             background: "#fafafa",
                           }}
                         >
-                          {!partnerHoleUnlocked && !pVal ? "🔒" : pIsPU ? "P" : pVal || "—"}
+                          {!holeUnlocked && !pVal ? "🔒" : pIsPU ? "P" : pVal || "—"}
                         </div>
                       )}
                     </div>
@@ -6890,46 +6381,44 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       ) : (
                         <div style={{ color: "#d1d5db", fontSize: 11 }}>—</div>
                       )}
-                      {chulligansEnabled &&
-                        (() => {
-                          const cState = chulliganButtonState(partnerId, i);
-                          const canEditPartner =
-                            (isAdmin ||
-                              (roundScoringLive && isMine && partnerHoleUnlocked)) &&
-                            !isSubmitted(state, roundId, partnerId);
-                          return (
-                            <button
-                              onClick={() =>
-                                canEditPartner && toggleChulligan(partnerId, i)
-                              }
-                              disabled={!canEditPartner || cState.locked}
-                              style={{
-                                minWidth: 36,
-                                padding: "4px 6px",
-                                borderRadius: 6,
-                                border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
-                                background: cState.active ? "#fffbeb" : "#fff",
-                                fontSize: 11,
-                                color:
-                                  !canEditPartner && !cState.active
+                      {(() => {
+                        const cState = chulliganButtonState(partnerId, i);
+                        const canEditPartner =
+                          (isAdmin || (roundScoringLive && isMine && holeUnlocked)) &&
+                          !isSubmitted(state, roundId, partnerId);
+                        return (
+                          <button
+                            onClick={() =>
+                              canEditPartner && toggleChulligan(partnerId, i)
+                            }
+                            disabled={!canEditPartner || cState.locked}
+                            style={{
+                              minWidth: 36,
+                              padding: "4px 6px",
+                              borderRadius: 6,
+                              border: `1px solid ${cState.active ? "#d97706" : "#d1d5db"}`,
+                              background: cState.active ? "#fffbeb" : "#fff",
+                              fontSize: 11,
+                              color:
+                                !canEditPartner && !cState.active
+                                  ? "#cbd5e1"
+                                  : cState.locked
                                     ? "#cbd5e1"
-                                    : cState.locked
-                                      ? "#cbd5e1"
-                                      : cState.active
-                                        ? "#d97706"
-                                        : "#94a3b8",
-                                cursor:
-                                  !canEditPartner || cState.locked
-                                    ? "not-allowed"
-                                    : "pointer",
-                                opacity:
-                                  !canEditPartner || cState.locked ? 0.7 : 1,
-                              }}
-                            >
-                              {cState.active ? "✓🍺" : "🍺"}
-                            </button>
-                          );
-                        })()}
+                                    : cState.active
+                                      ? "#d97706"
+                                      : "#94a3b8",
+                              cursor:
+                                !canEditPartner || cState.locked
+                                  ? "not-allowed"
+                                  : "pointer",
+                              opacity:
+                                !canEditPartner || cState.locked ? 0.7 : 1,
+                            }}
+                          >
+                            {cState.active ? "✓🍺" : "🍺"}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
@@ -6945,7 +6434,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       fontWeight: 600,
                     }}
                   >
-                    Locked until the prior hole is scored (hole {h.n - 1}).
+                    Locked until both scores are entered for hole {h.n - 1}.
                   </div>
                 )}
               </div>
@@ -6964,8 +6453,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
           }}
         >
           <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>
-            Back 9{" "}
-            {chulligansEnabled && myChulligans.back != null ? "🍺" : ""}
+            Back 9 {myChulligans.back != null ? "🍺" : ""}
           </span>
           <span
             style={{
@@ -7178,12 +6666,6 @@ function LeaderList({ onSelect }) {
       name: "🏆 Spinners Cup",
       desc: "Cumulative stableford across 3 rounds",
     },
-    { id: "practice", name: "Practice Stableford", desc: "The Dunes" },
-    {
-      id: "practice_teams",
-      name: "Practice 3-Ball Teams",
-      desc: "Best 2 stableford scores count",
-    },
     { id: "d1", name: "Day 1 Stableford", desc: "St Andrews Beach" },
     { id: "d2", name: "Day 2 Stableford", desc: "PK South" },
     { id: "d3", name: "Day 3 Stableford", desc: "PK North" },
@@ -7208,18 +6690,9 @@ function LeaderList({ onSelect }) {
   );
 }
 
-function LeaderView({
-  state,
-  catId,
-  live,
-  isAdmin,
-  onBack,
-  onOpenMatch,
-  onOpenPracticeScorecard,
-}) {
+function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
   const hideDailyPlayerPhotos =
     !live && (catId.startsWith("d") || catId.startsWith("2b"));
-  const competitionRounds = ROUNDS.filter((round) => !round.isPractice);
   if (catId === "ntp" || catId === "ld") {
     return (
       <div>
@@ -7290,7 +6763,7 @@ function LeaderView({
   }
   let rankings = [];
   if (catId === "spinners") {
-    const openingRound = competitionRounds[0];
+    const openingRound = ROUNDS[0];
     if (!isRoundRevealed(state, openingRound.id, live, isAdmin)) {
       return (
         <div>
@@ -7317,7 +6790,7 @@ function LeaderView({
       );
     }
     const revealedRounds = ROUNDS.filter((r) =>
-      r.includeInCup !== false && isRoundRevealed(state, r.id, live, isAdmin),
+      isRoundRevealed(state, r.id, live, isAdmin),
     );
     rankings = PLAYERS.map((p) => {
       let t = 0,
@@ -7334,101 +6807,9 @@ function LeaderView({
       });
       return { ...p, score: t, holes, totalHoles: revealedRounds.length * 18 };
     }).sort((a, b) => b.score - a.score);
-  } else if (catId === "practice") {
-    const round = ROUNDS.find((r) => r.id === "r0");
-    const course = getCourse(round.courseId);
-    if (!isRoundRevealed(state, round.id, live, isAdmin)) {
-      return (
-        <div>
-          <button onClick={onBack} style={S.backBtn}>
-            ← Back
-          </button>
-          <h2 style={S.sectTitle}>Round locked</h2>
-          <div
-            style={{
-              ...S.card,
-              borderStyle: "dashed",
-              borderColor: "#cbd5e1",
-              background: "#f8fafc",
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-              This leaderboard is hidden
-            </div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-              It will unlock once admin opens scoring for this round.
-            </div>
-          </div>
-        </div>
-      );
-    }
-    rankings = PLAYERS.filter((p) => PRACTICE_PLAYER_IDS.includes(p.id)).map((p) => {
-      const practiceTeam = getPracticeTeamByPlayer(p.id);
-      const sc = state.scores?.[round.id]?.[p.id] || [];
-      const holes = sc.filter((s) => holeFilled(s)).length;
-      return {
-        ...p,
-        score: pStab(
-          sc,
-          course,
-          courseHcp(
-            state.handicaps?.[p.id],
-            course,
-            getTeeKey(state, course.id),
-          ),
-        ),
-        holes,
-        totalHoles: 18,
-        roundId: round.id,
-        practiceTeamId: practiceTeam?.id || null,
-      };
-    }).sort((a, b) => b.score - a.score);
-  } else if (catId === "practice_teams") {
-    const round = ROUNDS.find((r) => r.id === "r0");
-    const course = getCourse(round.courseId);
-    if (!isRoundRevealed(state, round.id, live, isAdmin)) {
-      return (
-        <div>
-          <button onClick={onBack} style={S.backBtn}>
-            ← Back
-          </button>
-          <h2 style={S.sectTitle}>Round locked</h2>
-          <div
-            style={{
-              ...S.card,
-              borderStyle: "dashed",
-              borderColor: "#cbd5e1",
-              background: "#f8fafc",
-            }}
-          >
-            <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>
-              This leaderboard is hidden
-            </div>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-              It will unlock once admin opens scoring for this round.
-            </div>
-          </div>
-        </div>
-      );
-    }
-    rankings = PRACTICE_TEAMS.map((team, idx) => {
-      const totals = practiceTeamStablefordTotals({ state, round, course, team });
-      return {
-        id: team.id,
-        name: team.playerIds.map((playerId) => getP(playerId)?.short).join(" / "),
-        score: totals.score,
-        holes: totals.holes,
-        totalHoles: totals.totalHoles,
-        hideAvatar: true,
-        neutralBorder: true,
-        roundId: round.id,
-        practiceTeamId: team.id,
-        sortOrder: idx,
-      };
-    }).sort((a, b) => b.score - a.score || a.sortOrder - b.sortOrder);
   } else if (catId.startsWith("d")) {
     const ri = parseInt(catId[1]) - 1;
-    const round = competitionRounds[ri];
+    const round = ROUNDS[ri];
     const course = getCourse(round.courseId);
     if (!isRoundRevealed(state, round.id, live, isAdmin)) {
       return (
@@ -7477,7 +6858,7 @@ function LeaderView({
     }).sort((a, b) => b.score - a.score);
   } else if (catId.startsWith("2b")) {
     const ri = parseInt(catId[2]) - 1;
-    const round = competitionRounds[ri];
+    const round = ROUNDS[ri];
     const course = getCourse(round.courseId);
     if (!isRoundRevealed(state, round.id, live, isAdmin)) {
       return (
@@ -7523,14 +6904,9 @@ function LeaderView({
         let pts = 0,
           holes = 0;
         course.holes.forEach((h, i) => {
-          let pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
+          const pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
           const pB = sPts(sB[i] || 0, h.par, hStrokes(hB, h));
-          if (round.id === "r1" && a === "jkelly") pA *= 2;
-          if (round.id === "r1" && b === "jkelly") {
-            pts += Math.max(pA, pB * 2);
-          } else {
-            pts += Math.max(pA, pB);
-          }
+          pts += Math.max(pA, pB);
           if (holeFilled(sA[i] || 0) || holeFilled(sB[i] || 0)) holes++;
         });
         pairs.push({
@@ -7553,8 +6929,6 @@ function LeaderView({
   }
   const titles = {
     spinners: "🏆 Spinners Cup",
-    practice: "Practice Stableford",
-    practice_teams: "Practice 3-Ball Teams",
     d1: "Day 1 Stableford",
     d2: "Day 2 Stableford",
     d3: "Day 3 Stableford",
@@ -7570,14 +6944,7 @@ function LeaderView({
       <h2 style={S.sectTitle}>{titles[catId]}</h2>
       {rankings.map((r, i) => {
         const canOpen = !!(r.roundId && r.matchId && onOpenMatch);
-        const canOpenPractice = !!(
-          r.roundId &&
-          r.practiceTeamId &&
-          onOpenPracticeScorecard
-        );
-        const teamBorderColor = r.neutralBorder
-          ? "#cbd5e1"
-          : live
+        const teamBorderColor = live
           ? r.team === "blue"
             ? "#D4A017"
             : "#DC2626"
@@ -7587,13 +6954,6 @@ function LeaderView({
             key={r.id}
             onClick={() => {
               if (canOpen) onOpenMatch(r.roundId, r.matchId);
-              else if (canOpenPractice) {
-                onOpenPracticeScorecard({
-                  roundId: r.roundId,
-                  practiceTeamId: r.practiceTeamId,
-                  focusPlayerId: catId === "practice" ? r.id : null,
-                });
-              }
             }}
             style={{
               ...S.card,
@@ -7604,7 +6964,7 @@ function LeaderView({
               borderTop: "1px solid #e2e8f0",
               borderRight: "1px solid #e2e8f0",
               borderBottom: "1px solid #e2e8f0",
-              cursor: canOpen || canOpenPractice ? "pointer" : "default",
+              cursor: canOpen ? "pointer" : "default",
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -7620,7 +6980,6 @@ function LeaderView({
                 {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}
               </div>
               {!hideDailyPlayerPhotos &&
-                !r.hideAvatar &&
                 (r.id && r.id.includes("_") ? (
                   <div
                     style={{
@@ -7847,7 +7206,7 @@ function ScheduleMenu({ onSelect }) {
 }
 
 // ─── Match Schedule ──────────────────────────────────────────
-function MatchSchedule({ state, isAdmin, onOpenMatch, onBack }) {
+function MatchSchedule({ state, isAdmin, onBack }) {
   return (
     <div>
       <button onClick={onBack} style={S.backBtn}>
@@ -7923,86 +7282,15 @@ function MatchSchedule({ state, isAdmin, onOpenMatch, onBack }) {
               >
                 Tee Times & Draw
               </div>
-              {round.matches.length === 0 && (
-                <div
-                  style={{
-                    padding: "8px 10px",
-                    background: "#fff",
-                    borderRadius: 8,
-                    marginBottom: 6,
-                    border: "1px solid #e2e8f0",
-                  }}
-                >
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1e293b" }}>
-                    Practice round — 2 groups of 3
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-                    3-ball teams event: best 2 stableford scores per team count.
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gap: 8 }}>
-                    {(
-                      round.practiceGroups?.length
-                        ? round.practiceGroups
-                        : round.teeTimes.map(() => [])
-                    ).map((group, idx) => (
-                      <div
-                        key={`${round.id}_practice_${idx}`}
-                        style={{
-                          border: "1px solid #e2e8f0",
-                          borderRadius: 8,
-                          padding: "8px 10px",
-                          background: "#f8fafc",
-                        }}
-                      >
-                        <div
-                          style={{
-                            fontSize: 12,
-                            fontWeight: 800,
-                            color: "#166534",
-                            fontFamily: "'JetBrains Mono',monospace",
-                          }}
-                        >
-                          Group {idx + 1}: {round.teeTimes[idx] || "TBC"}
-                        </div>
-                        {group.length > 0 && (
-                          <div
-                            style={{
-                              marginTop: 4,
-                              display: "grid",
-                              gridTemplateColumns: "1fr 1fr",
-                              gap: "2px 10px",
-                            }}
-                          >
-                            {group.map((name) => (
-                              <div
-                                key={`${round.id}_${idx}_${name}`}
-                                style={{ fontSize: 12, color: "#334155", fontWeight: 600 }}
-                              >
-                                • {name}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
               {round.matches.map((match, mi) => (
-                <button
+                <div
                   key={match.id}
-                  onClick={() => {
-                    if (showPlayerNames && onOpenMatch) onOpenMatch(match.id);
-                  }}
                   style={{
                     padding: "8px 10px",
                     background: "#fff",
                     borderRadius: 8,
                     marginBottom: 6,
                     border: "1px solid #e2e8f0",
-                    width: "100%",
-                    textAlign: "left",
-                    cursor: showPlayerNames && onOpenMatch ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -8092,7 +7380,7 @@ function MatchSchedule({ state, isAdmin, onOpenMatch, onBack }) {
                       </span>
                     </span>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>
@@ -8546,9 +7834,6 @@ function DailySummaryModal({ summary, onClose }) {
           border: "1px solid #dbeafe",
           padding: 18,
           boxShadow: "0 20px 40px rgba(0,0,0,.25)",
-          maxHeight: "calc(100vh - 32px)",
-          display: "flex",
-          flexDirection: "column",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -8606,10 +7891,6 @@ function DailySummaryModal({ summary, onClose }) {
             color: "#475569",
             lineHeight: 1.65,
             whiteSpace: "pre-wrap",
-            overflowY: "auto",
-            flex: 1,
-            minHeight: 0,
-            paddingRight: 4,
           }}
         >
           {summary.content}
@@ -8928,7 +8209,7 @@ function PlayersPage({ state, upd, isAdmin, live }) {
               <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
                 {state.eventLive
                   ? "Event is LIVE — players can see teams, matches & enter scores"
-                  : "Event is HIDDEN — teams and matches stay hidden until launch"}
+                  : "Event is HIDDEN — teams, matches & scoring are hidden from players"}
               </div>
             </div>
             <button
@@ -8953,47 +8234,6 @@ function PlayersPage({ state, upd, isAdmin, live }) {
               {state.eventLive ? "Go Hidden" : "Go Live"}
             </button>
           </div>
-        </div>
-      )}
-
-      {isAdmin && (
-        <div
-          style={{
-            padding: "14px 16px",
-            background: "#fff",
-            borderRadius: 12,
-            border: "1px solid #e2e8f0",
-            marginBottom: 16,
-          }}
-        >
-          <div style={{ fontSize: 14, fontWeight: 700, color: "#1e293b" }}>
-            🔓 Open Scoring (Pre-Launch)
-          </div>
-          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
-            Allow score entry before the event is marked live.
-          </div>
-          <button
-            onClick={() =>
-              upd((s) => {
-                s.scoringOpenWhenHidden = !s.scoringOpenWhenHidden;
-              })
-            }
-            style={{
-              marginTop: 10,
-              padding: "8px 12px",
-              borderRadius: 8,
-              border: "none",
-              background: state.scoringOpenWhenHidden ? "#dc2626" : "#16a34a",
-              color: "#fff",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
-          >
-            {state.scoringOpenWhenHidden
-              ? "Disable Open Scoring"
-              : "Enable Open Scoring"}
-          </button>
         </div>
       )}
 
@@ -9146,7 +8386,6 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                     upd((s) => {
                       if (!s.roundScoringLive)
                         s.roundScoringLive = {
-                          r0: false,
                           r1: false,
                           r2: false,
                           r3: false,
@@ -10035,16 +9274,12 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                   height: "100%",
                   borderRadius: 14,
                   objectFit: "cover",
-                  objectPosition: PLAYER_PHOTOS_VISIBLE
-                    ? "center"
-                    : "center 15%",
-                  transform: PLAYER_PHOTOS_VISIBLE ? "none" : "scale(1.22)",
-                  filter: PLAYER_PHOTOS_VISIBLE
-                    ? "none"
-                    : HIDDEN_PLAYER_IMAGE_FILTER,
+                  objectPosition: live ? "center" : "center 15%",
+                  transform: live ? "none" : "scale(1.22)",
+                  filter: live ? "none" : HIDDEN_PLAYER_IMAGE_FILTER,
                 }}
               />
-              {!PLAYER_PHOTOS_VISIBLE && (
+              {!live && (
                 <div
                   aria-hidden="true"
                   style={{
