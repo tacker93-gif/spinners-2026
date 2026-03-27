@@ -7222,6 +7222,7 @@ function LeaderView({
 }) {
   const hideDailyPlayerPhotos =
     !live && (catId.startsWith("d") || catId.startsWith("2b"));
+  const competitionRounds = ROUNDS.filter((round) => !round.isPractice);
   if (catId === "ntp" || catId === "ld") {
     return (
       <div>
@@ -7292,7 +7293,7 @@ function LeaderView({
   }
   let rankings = [];
   if (catId === "spinners") {
-    const openingRound = ROUNDS[0];
+    const openingRound = competitionRounds[0];
     if (!isRoundRevealed(state, openingRound.id, live, isAdmin)) {
       return (
         <div>
@@ -7430,7 +7431,7 @@ function LeaderView({
     }).sort((a, b) => b.score - a.score || a.sortOrder - b.sortOrder);
   } else if (catId.startsWith("d")) {
     const ri = parseInt(catId[1]) - 1;
-    const round = ROUNDS[ri];
+    const round = competitionRounds[ri];
     const course = getCourse(round.courseId);
     if (!isRoundRevealed(state, round.id, live, isAdmin)) {
       return (
@@ -7479,7 +7480,7 @@ function LeaderView({
     }).sort((a, b) => b.score - a.score);
   } else if (catId.startsWith("2b")) {
     const ri = parseInt(catId[2]) - 1;
-    const round = ROUNDS[ri];
+    const round = competitionRounds[ri];
     const course = getCourse(round.courseId);
     if (!isRoundRevealed(state, round.id, live, isAdmin)) {
       return (
