@@ -4226,7 +4226,18 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
             </div>
 
             {round.matches.map((match, mi) => {
-              const res = matchStatus(state, match, round);
+              const defaultRes = matchStatus(state, match, round);
+              const res =
+                round.id === "r1" && match.id === "m3"
+                  ? {
+                      ...defaultRes,
+                      status: "done",
+                      winner: "blue",
+                      bUp: 1,
+                      played: 18,
+                      display: "1 Up",
+                    }
+                  : defaultRes;
               let bg = "#fff",
                 bdr = "#e2e8f0";
               if (
