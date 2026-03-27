@@ -1792,16 +1792,17 @@ function matchStatus(state, match, round) {
   for (let i = 0; i < 18; i++) {
     const h = course.holes[i];
     const holeNumber = i + 1;
-    // For each player: pickup(-1) = 99 net (worst possible), >0 = gross - strokes, else not scored
-    const bN = match.blue.map((_, pi) => {
+    // Match play hole result is based on each side's best stableford score.
+    // Pickup/unscored holes contribute 0 unless the partner records points.
+    const bPts = match.blue.map((_, pi) => {
       const g = bSc[pi]?.[i];
-      if (g === -1) return 99;
-      return g > 0 ? g - hStrokes(abH[pi], h) : null;
+      if (!holeFilled(g)) return null;
+      return isPickup(g) ? 0 : sPts(g, h.par, hStrokes(abH[pi], h));
     });
-    const gN = match.grey.map((_, pi) => {
+    const gPts = match.grey.map((_, pi) => {
       const g = gSc[pi]?.[i];
-      if (g === -1) return 99;
-      return g > 0 ? g - hStrokes(agH[pi], h) : null;
+      if (!holeFilled(g)) return null;
+      return isPickup(g) ? 0 : sPts(g, h.par, hStrokes(agH[pi], h));
     });
     // At least one from each team must have a score (including pickup)
     const blueHasScore = match.blue.some((_, pi) => holeFilled(bSc[pi]?.[i]));
@@ -1817,11 +1818,11 @@ function matchStatus(state, match, round) {
       const forcedBlueIdx = forcedBlueId ? match.blue.indexOf(forcedBlueId) : -1;
       const bestB =
         forcedBlueIdx >= 0
-          ? bN[forcedBlueIdx] ?? 99
-          : Math.min(...bN.filter((v) => v !== null));
-      const bestG = Math.min(...gN.filter((v) => v !== null));
-      if (bestB < bestG) bUp++;
-      else if (bestG < bestB) bUp--;
+          ? bPts[forcedBlueIdx] ?? 0
+          : Math.max(...bPts.filter((v) => v !== null));
+      const bestG = Math.max(...gPts.filter((v) => v !== null));
+      if (bestB > bestG) bUp++;
+      else if (bestG > bestB) bUp--;
       const rem = 18 - played;
       if (Math.abs(bUp) > rem) {
         clinched = { bUp, played, rem };
