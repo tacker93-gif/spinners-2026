@@ -1757,11 +1757,6 @@ function findMatchByTeam(roundId, teamIds) {
   );
 }
 
-function getForcedMatchPlayScorerId(round, match, side, holeNumber) {
-  if (round?.id !== "r1" || match?.id !== "m3" || side !== "blue") return null;
-  return holeNumber % 2 === 1 ? "lach" : "cam";
-}
-
 function getPracticeTeamByPlayer(playerId) {
   return PRACTICE_TEAMS.find((team) => team.playerIds.includes(playerId)) || null;
 }
@@ -1791,7 +1786,6 @@ function matchStatus(state, match, round) {
   let clinched = null;
   for (let i = 0; i < 18; i++) {
     const h = course.holes[i];
-    const holeNumber = i + 1;
     // Match play hole result is based on each side's best stableford score.
     // Pickup/unscored holes contribute 0 unless the partner records points.
     const bPts = match.blue.map((_, pi) => {
@@ -1809,17 +1803,8 @@ function matchStatus(state, match, round) {
     const greyHasScore = match.grey.some((_, pi) => holeFilled(gSc[pi]?.[i]));
     if (blueHasScore && greyHasScore) {
       played++;
-      const forcedBlueId = getForcedMatchPlayScorerId(
-        round,
-        match,
-        "blue",
-        holeNumber,
-      );
-      const forcedBlueIdx = forcedBlueId ? match.blue.indexOf(forcedBlueId) : -1;
       const bestB =
-        forcedBlueIdx >= 0
-          ? bPts[forcedBlueIdx] ?? 0
-          : Math.max(...bPts.filter((v) => v !== null));
+        Math.max(...bPts.filter((v) => v !== null));
       const bestG = Math.max(...gPts.filter((v) => v !== null));
       if (bestB > bestG) bUp++;
       else if (bestG > bestB) bUp--;
