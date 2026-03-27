@@ -3045,7 +3045,7 @@ function App() {
             state={state}
             cur={cur}
             upd={upd}
-            onMatch={(id) => setSub({ t: "m", id })}
+            onMatch={(id, roundId) => setSub({ t: "m", id, roundId: roundId || null })}
             live={live}
             isAdmin={isAdmin}
           />
@@ -3058,6 +3058,7 @@ function App() {
               upd={upd}
               isAdmin={isAdmin}
               matchId={sub.id}
+              roundId={sub.roundId}
               onBack={() => setSub(null)}
             />
           ) : (
@@ -4559,7 +4560,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
                 <button
                   key={match.id}
                   onClick={() => {
-                    if (showMatchDetails) onMatch(match.id);
+                    if (showMatchDetails) onMatch(match.id, round.id);
                   }}
                   style={{
                     ...S.card,
@@ -4626,16 +4627,30 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
 }
 
 // ─── Match View ──────────────────────────────────────────────
-function MatchView({ state, upd, isAdmin, matchId, onBack }) {
-  let match, round;
-  for (const r of ROUNDS) {
-    const m = r.matches.find((x) => x.id === matchId);
-    if (m) {
-      match = m;
-      round = r;
-      break;
+function MatchView({ state, upd, isAdmin, matchId, roundId, onBack }) {
+  let match = null;
+  let round = null;
+
+  if (roundId) {
+    const scopedRound = ROUNDS.find((r) => r.id === roundId);
+    const scopedMatch = scopedRound?.matches?.find((x) => x.id === matchId);
+    if (scopedRound && scopedMatch) {
+      round = scopedRound;
+      match = scopedMatch;
     }
   }
+
+  if (!match || !round) {
+    for (const r of ROUNDS) {
+      const m = r.matches.find((x) => x.id === matchId);
+      if (m) {
+        match = m;
+        round = r;
+        break;
+      }
+    }
+  }
+
   if (!match) return null;
   const course = getCourse(round.courseId);
   const allIds = [...match.blue, ...match.grey];
