@@ -1930,7 +1930,7 @@ function toRemoteState(state) {
   return next;
 }
 
-const SLEDGE_COOLDOWN_MS = 20 * 60 * 1000;
+const SLEDGE_COOLDOWN_MS = 2 * 60 * 60 * 1000;
 const SLEDGE_TTL_MS = 60 * 60 * 1000;
 
 function pickSledge(lines) {
