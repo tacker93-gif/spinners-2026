@@ -1757,6 +1757,11 @@ function findMatchByTeam(roundId, teamIds) {
   );
 }
 
+function getForcedMatchPlayScorerId(round, match, side, holeNumber) {
+  if (round?.id !== "r1" || match?.id !== "m3" || side !== "blue") return null;
+  return holeNumber % 2 === 1 ? "lach" : "cam";
+}
+
 function getPracticeTeamByPlayer(playerId) {
   return PRACTICE_TEAMS.find((team) => team.playerIds.includes(playerId)) || null;
 }
@@ -1786,6 +1791,7 @@ function matchStatus(state, match, round) {
   let clinched = null;
   for (let i = 0; i < 18; i++) {
     const h = course.holes[i];
+    const holeNumber = i + 1;
     // For each player: pickup(-1) = 99 net (worst possible), >0 = gross - strokes, else not scored
     const bN = match.blue.map((_, pi) => {
       const g = bSc[pi]?.[i];
@@ -1802,7 +1808,17 @@ function matchStatus(state, match, round) {
     const greyHasScore = match.grey.some((_, pi) => holeFilled(gSc[pi]?.[i]));
     if (blueHasScore && greyHasScore) {
       played++;
-      const bestB = Math.min(...bN.filter((v) => v !== null));
+      const forcedBlueId = getForcedMatchPlayScorerId(
+        round,
+        match,
+        "blue",
+        holeNumber,
+      );
+      const forcedBlueIdx = forcedBlueId ? match.blue.indexOf(forcedBlueId) : -1;
+      const bestB =
+        forcedBlueIdx >= 0
+          ? bN[forcedBlueIdx] ?? 99
+          : Math.min(...bN.filter((v) => v !== null));
       const bestG = Math.min(...gN.filter((v) => v !== null));
       if (bestB < bestG) bUp++;
       else if (bestG < bestB) bUp--;
@@ -4765,6 +4781,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
           </thead>
           <tbody>
             {course.holes.map((h, i) => {
+              const holeNumber = i + 1;
               const pD = allIds.map((id, pi) => {
                 const isB = match.blue.includes(id);
                 const adjH = isB
@@ -4799,9 +4816,29 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
               const gDisplayPts = pD
                 .filter((d) => !d.isB)
                 .map((d) => d.displayPts);
-              const bestBMatch = Math.max(...bMatchPts),
+              const forcedBlueId = getForcedMatchPlayScorerId(
+                round,
+                match,
+                "blue",
+                holeNumber,
+              );
+              const forcedBlueMatchPts =
+                forcedBlueId != null
+                  ? pD.find(
+                      (_, idx) => allIds[idx] === forcedBlueId,
+                    )?.matchPts
+                  : null;
+              const forcedBlueDisplayPts =
+                forcedBlueId != null
+                  ? pD.find(
+                      (_, idx) => allIds[idx] === forcedBlueId,
+                    )?.displayPts
+                  : null;
+              const bestBMatch =
+                  forcedBlueMatchPts ?? Math.max(...bMatchPts),
                 bestGMatch = Math.max(...gMatchPts);
-              const bestBDisplay = Math.max(...bDisplayPts),
+              const bestBDisplay =
+                  forcedBlueDisplayPts ?? Math.max(...bDisplayPts),
                 bestGDisplay = Math.max(...gDisplayPts);
               let hRes = "",
                 resCol = "#94a3b8";
@@ -7487,9 +7524,14 @@ function LeaderView({
         let pts = 0,
           holes = 0;
         course.holes.forEach((h, i) => {
-          const pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
+          let pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
           const pB = sPts(sB[i] || 0, h.par, hStrokes(hB, h));
-          pts += Math.max(pA, pB);
+          if (round.id === "r1" && a === "jkelly") pA *= 2;
+          if (round.id === "r1" && b === "jkelly") {
+            pts += Math.max(pA, pB * 2);
+          } else {
+            pts += Math.max(pA, pB);
+          }
           if (holeFilled(sA[i] || 0) || holeFilled(sB[i] || 0)) holes++;
         });
         pairs.push({
