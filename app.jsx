@@ -3049,7 +3049,7 @@ function App() {
         )}
       </div>
       {summaryPopup && (
-        <DailySummaryModal
+        <EntrySummaryPopup
           summary={summaryPopup}
           onClose={() => {
             const active = summaryPopup;
@@ -7870,7 +7870,7 @@ function RulesPage({ state, onBack }) {
   );
 }
 
-function DailySummaryModal({ summary, onClose }) {
+function EntrySummaryPopup({ summary, onClose }) {
   return (
     <div
       style={{
@@ -7975,6 +7975,10 @@ function DailySummaryModal({ summary, onClose }) {
             marginTop: 14,
             gap: 12,
             flexShrink: 0,
+            position: "sticky",
+            bottom: 0,
+            background: "#fff",
+            paddingTop: 8,
           }}
         >
           <div style={{ fontSize: 11, color: "#94a3b8", flex: 1 }}>
