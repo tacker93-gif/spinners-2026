@@ -3844,6 +3844,21 @@ function LockedMessage({ title, msg, onBack }) {
 
 // ─── Cup Screen ──────────────────────────────────────────────
 function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
+  const getCupMatchResult = (round, match) => {
+    const defaultRes = matchStatus(state, match, round);
+    if (round.id === "r1" && match.id === "m3") {
+      return {
+        ...defaultRes,
+        status: "done",
+        winner: "blue",
+        bUp: 1,
+        played: 18,
+        display: "1 Up",
+      };
+    }
+    return defaultRes;
+  };
+
   let bT = 0,
     gT = 0,
     bLive = 0,
@@ -3851,7 +3866,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
   ROUNDS.forEach((r) => {
     if (!isRoundRevealed(state, r.id, live, isAdmin)) return;
     r.matches.forEach((m) => {
-      const res = matchStatus(state, m, r);
+      const res = getCupMatchResult(r, m);
       if (res.status === "done") {
         if (res.winner === "blue") bT += 1;
         else if (res.winner === "grey") gT += 1;
@@ -4226,18 +4241,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
             </div>
 
             {round.matches.map((match, mi) => {
-              const defaultRes = matchStatus(state, match, round);
-              const res =
-                round.id === "r1" && match.id === "m3"
-                  ? {
-                      ...defaultRes,
-                      status: "done",
-                      winner: "blue",
-                      bUp: 1,
-                      played: 18,
-                      display: "1 Up",
-                    }
-                  : defaultRes;
+              const res = getCupMatchResult(round, match);
               let bg = "#fff",
                 bdr = "#e2e8f0";
               if (
