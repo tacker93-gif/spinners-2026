@@ -4970,7 +4970,16 @@ function SledgeFeedPage({ state, cur, live }) {
                       {isSummary ? item.title : item.message}
                     </div>
                     {isSummary ? (
-                      <div style={{ fontSize: 13, color: "#475569", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                      <div
+                        style={{
+                          fontSize: 13,
+                          color: "#475569",
+                          lineHeight: 1.6,
+                          whiteSpace: "pre-wrap",
+                          overflowWrap: "anywhere",
+                          wordBreak: "break-word",
+                        }}
+                      >
                         {item.message}
                       </div>
                     ) : (
@@ -7944,6 +7953,8 @@ function DailySummaryModal({ summary, onClose }) {
             color: "#475569",
             lineHeight: 1.65,
             whiteSpace: "pre-wrap",
+            overflowWrap: "anywhere",
+            wordBreak: "break-word",
           }}
         >
           {summary.content}
@@ -8037,6 +8048,8 @@ function SummaryHubPage({ state, cur, onBack }) {
                 color: "#475569",
                 lineHeight: 1.65,
                 whiteSpace: "pre-wrap",
+                overflowWrap: "anywhere",
+                wordBreak: "break-word",
               }}
             >
               {s.content}
@@ -8054,7 +8067,16 @@ function SummaryHubPage({ state, cur, onBack }) {
                 <div style={{ fontSize: 11, fontWeight: 800, color: "#1d4ed8", marginBottom: 4 }}>
                   Shareable recap card
                 </div>
-                <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                <div
+                  style={{
+                    fontSize: 12,
+                    color: "#475569",
+                    lineHeight: 1.55,
+                    whiteSpace: "pre-wrap",
+                    overflowWrap: "anywhere",
+                    wordBreak: "break-word",
+                  }}
+                >
                   {shareCard.body}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -8520,7 +8542,16 @@ function PlayersPage({ state, upd, isAdmin, live }) {
                     <div style={{ fontSize: 11, fontWeight: 800, color: "#1d4ed8", marginBottom: 4 }}>
                       Recap card preview
                     </div>
-                    <div style={{ fontSize: 12, color: "#475569", lineHeight: 1.55, whiteSpace: "pre-wrap" }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: "#475569",
+                        lineHeight: 1.55,
+                        whiteSpace: "pre-wrap",
+                        overflowWrap: "anywhere",
+                        wordBreak: "break-word",
+                      }}
+                    >
                       {shareCard.body}
                     </div>
                   </div>
