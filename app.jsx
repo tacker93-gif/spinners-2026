@@ -4504,9 +4504,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
       </div>
 
       {ROUNDS.map((round) => {
-        const roundScoringOpen = isRoundScoringLive(state, round.id);
-        const showMatchDetails =
-          isAdmin || (!!state?.eventLive && roundScoringOpen);
+        const showMatchDetails = isAdmin || !!state?.eventLive;
         return (
           <div key={round.id} style={{ marginBottom: 20 }}>
             <div style={{ marginBottom: 8 }}>
@@ -4516,11 +4514,6 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
               <div style={{ fontSize: 11, color: "#94a3b8" }}>
                 {round.courseName}
               </div>
-              {!showMatchDetails && !isAdmin && state?.eventLive && (
-                <div style={{ fontSize: 10, color: "#b45309", marginTop: 2 }}>
-                  Round details are hidden until open scoring is enabled.
-                </div>
-              )}
             </div>
 
             {round.matches.map((match, mi) => {
