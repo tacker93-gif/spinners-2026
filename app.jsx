@@ -1678,9 +1678,6 @@ function matchStatus(state, match, round) {
   const mn = Math.min(...bH, ...gH);
   const abH = bH.map((h) => h - mn),
     agH = gH.map((h) => h - mn);
-  const isRoundOneMatchThree = round.id === "r1" && match.id === "m3";
-  const lachBlueIndex = match.blue.indexOf("lach");
-  const camBlueIndex = match.blue.indexOf("cam");
   const getStablefordForPlayer = (grossScore, handicapDelta, hole) => {
     if (!holeFilled(grossScore)) return null;
     if (grossScore === -1) return 0;
@@ -1699,18 +1696,10 @@ function matchStatus(state, match, round) {
       getStablefordForPlayer(gSc[pi]?.[i], agH[pi], h),
     );
 
-    const forcedBluePlayerIndex =
-      isRoundOneMatchThree && lachBlueIndex >= 0 && camBlueIndex >= 0
-        ? (i + 1) % 2 === 1
-          ? lachBlueIndex
-          : camBlueIndex
-        : null;
     const blueTeamHolePts =
-      forcedBluePlayerIndex == null
-        ? bPts.some((v) => v != null)
-          ? Math.max(...bPts.filter((v) => v != null))
-          : null
-        : bPts[forcedBluePlayerIndex];
+      bPts.some((v) => v != null)
+        ? Math.max(...bPts.filter((v) => v != null))
+        : null;
     const greyTeamHolePts = gPts.some((v) => v != null)
       ? Math.max(...gPts.filter((v) => v != null))
       : null;
