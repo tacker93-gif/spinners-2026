@@ -3140,6 +3140,10 @@ function App() {
             <MatchSchedule
               state={state}
               isAdmin={isAdmin}
+              onOpenMatch={(matchId) => {
+                setTab("cup");
+                setSub({ t: "m", id: matchId });
+              }}
               onBack={() => setSub(null)}
             />
           )}
@@ -7835,7 +7839,7 @@ function ScheduleMenu({ onSelect }) {
 }
 
 // ─── Match Schedule ──────────────────────────────────────────
-function MatchSchedule({ state, isAdmin, onBack }) {
+function MatchSchedule({ state, isAdmin, onOpenMatch, onBack }) {
   return (
     <div>
       <button onClick={onBack} style={S.backBtn}>
@@ -7977,14 +7981,20 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                 </div>
               )}
               {round.matches.map((match, mi) => (
-                <div
+                <button
                   key={match.id}
+                  onClick={() => {
+                    if (showPlayerNames && onOpenMatch) onOpenMatch(match.id);
+                  }}
                   style={{
                     padding: "8px 10px",
                     background: "#fff",
                     borderRadius: 8,
                     marginBottom: 6,
                     border: "1px solid #e2e8f0",
+                    width: "100%",
+                    textAlign: "left",
+                    cursor: showPlayerNames && onOpenMatch ? "pointer" : "default",
                   }}
                 >
                   <div
@@ -8074,7 +8084,7 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                       </span>
                     </span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
