@@ -746,8 +746,8 @@ const ROUNDS = [
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
       { id: "m4", blue: ["tom", "lach"], grey: ["angus", "alex"] },
-      { id: "m5", blue: ["nick", "callum"], grey: ["jason", "jkelly"] },
-      { id: "m6", blue: ["jturner", "cam"], grey: ["luke", "chris"] },
+      { id: "m5", blue: ["nick", "jturner"], grey: ["jason", "jkelly"] },
+      { id: "m6", blue: ["callum", "cam"], grey: ["luke", "chris"] },
     ],
   },
   {
@@ -758,8 +758,8 @@ const ROUNDS = [
     courseName: "PK North Course",
     teeTimes: ["8:27am", "8:35am", "8:43am"],
     matches: [
-      { id: "m7", blue: ["nick", "lach"], grey: ["luke", "jason"] },
-      { id: "m8", blue: ["jturner", "cam"], grey: ["angus", "jkelly"] },
+      { id: "m7", blue: ["nick", "cam"], grey: ["luke", "jason"] },
+      { id: "m8", blue: ["jturner", "lach"], grey: ["angus", "jkelly"] },
       { id: "m9", blue: ["tom", "callum"], grey: ["alex", "chris"] },
     ],
   },
