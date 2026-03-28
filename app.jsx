@@ -3903,10 +3903,11 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
       }
     });
   });
-  const cupWinner = bT > 4.5 ? "blue" : gT > 4.5 ? "grey" : null;
+  const totalPoints = ROUNDS.reduce((sum, round) => sum + round.matches.length, 0);
+  const winningPoints = totalPoints / 2;
+  const cupWinner = bT > winningPoints ? "blue" : gT > winningPoints ? "grey" : null;
   const bInterim = bT + bLive;
   const gInterim = gT + gLive;
-  const totalPoints = 9;
   const blocks = Array.from({ length: totalPoints }, (_, i) => i);
   const fmt = (n) => (n % 1 === 0 ? n : n.toFixed(1));
   const showLiveTotals = live && (bLive > 0 || gLive > 0);
@@ -4202,7 +4203,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
                   lineHeight: 1,
                 }}
               >
-                4.5
+                {fmt(winningPoints)}
               </div>
               <div
                 style={{
