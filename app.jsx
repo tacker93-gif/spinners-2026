@@ -4557,6 +4557,8 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                   : bDisplayPts[forcedBluePlayerIndex];
               const bestGMatch = Math.max(...gMatchPts),
                 bestGDisplay = Math.max(...gDisplayPts);
+              const shownBlueTeamPts = bothScored ? bestBMatch : bestBDisplay;
+              const shownGreyTeamPts = bothScored ? bestGMatch : bestGDisplay;
               // Match outcome must be based on match-play stableford values
               // (after match handicap adjustment / forced-player rule), not the
               // per-player display stableford values.
@@ -4643,7 +4645,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                           : "transparent",
                     }}
                   >
-                    {bothScored ? bestBDisplay : blueHas ? bestBDisplay : "—"}
+                    {blueHas ? shownBlueTeamPts : "—"}
                   </td>
                   <td
                     style={{
@@ -4656,7 +4658,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                           : "transparent",
                     }}
                   >
-                    {bothScored ? bestGDisplay : greyHas ? bestGDisplay : "—"}
+                    {greyHas ? shownGreyTeamPts : "—"}
                   </td>
                   <td style={{ ...S.td, textAlign: "center" }}>
                     {bothScored && (
