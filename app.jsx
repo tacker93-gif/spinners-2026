@@ -757,11 +757,14 @@ const ROUNDS = [
     day: "Sunday 29th March",
     courseId: "pk_north",
     courseName: "PK North Course",
-    teeTimes: ["8:27am", "8:35am", "8:43am"],
+    teeTimes: ["8:27am", "8:27am", "8:35am", "8:35am", "8:43am", "8:43am"],
     matches: [
-      { id: "m7", blue: ["nick", "cam"], grey: ["luke", "jason"] },
-      { id: "m8", blue: ["jturner", "lach"], grey: ["angus", "jkelly"] },
-      { id: "m9", blue: ["tom", "callum"], grey: ["alex", "chris"] },
+      { id: "m7", blue: ["nick"], grey: ["luke"] },
+      { id: "m8", blue: ["cam"], grey: ["jason"] },
+      { id: "m9", blue: ["jturner"], grey: ["angus"] },
+      { id: "m10", blue: ["lach"], grey: ["jkelly"] },
+      { id: "m11", blue: ["tom"], grey: ["alex"] },
+      { id: "m12", blue: ["callum"], grey: ["chris"] },
     ],
   },
 ];
@@ -3900,10 +3903,11 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
       }
     });
   });
-  const cupWinner = bT > 4.5 ? "blue" : gT > 4.5 ? "grey" : null;
+  const totalPoints = ROUNDS.reduce((sum, round) => sum + round.matches.length, 0);
+  const winningPoints = totalPoints / 2;
+  const cupWinner = bT > winningPoints ? "blue" : gT > winningPoints ? "grey" : null;
   const bInterim = bT + bLive;
   const gInterim = gT + gLive;
-  const totalPoints = 9;
   const blocks = Array.from({ length: totalPoints }, (_, i) => i);
   const fmt = (n) => (n % 1 === 0 ? n : n.toFixed(1));
   const showLiveTotals = live && (bLive > 0 || gLive > 0);
@@ -4199,7 +4203,7 @@ function CupScreen({ state, cur, upd, onMatch, live, isAdmin }) {
                   lineHeight: 1,
                 }}
               >
-                4.5
+                {fmt(winningPoints)}
               </div>
               <div
                 style={{
@@ -7421,16 +7425,12 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                           alignItems: "flex-start",
                         }}
                       >
-                        <span>
-                          {showPlayerNames
-                            ? match.blue.map((id) => getP(id)?.name)[0]
-                            : "Player 1"}
-                        </span>
-                        <span>
-                          {showPlayerNames
-                            ? match.blue.map((id) => getP(id)?.name)[1]
-                            : "Player 2"}
-                        </span>
+                        {(showPlayerNames
+                          ? match.blue.map((id) => getP(id)?.name || id)
+                          : match.blue.map((_, idx) => `Player ${idx + 1}`)
+                        ).map((name, idx) => (
+                          <span key={`${match.id}-blue-${idx}`}>{name}</span>
+                        ))}
                       </span>
                     </span>
                     <span style={{ fontSize: 10, color: "#94a3b8" }}>vs</span>
@@ -7451,16 +7451,12 @@ function MatchSchedule({ state, isAdmin, onBack }) {
                           alignItems: "flex-end",
                         }}
                       >
-                        <span>
-                          {showPlayerNames
-                            ? match.grey.map((id) => getP(id)?.name)[0]
-                            : "Player 3"}
-                        </span>
-                        <span>
-                          {showPlayerNames
-                            ? match.grey.map((id) => getP(id)?.name)[1]
-                            : "Player 4"}
-                        </span>
+                        {(showPlayerNames
+                          ? match.grey.map((id) => getP(id)?.name || id)
+                          : match.grey.map((_, idx) => `Player ${idx + 1}`)
+                        ).map((name, idx) => (
+                          <span key={`${match.id}-grey-${idx}`}>{name}</span>
+                        ))}
                       </span>
                     </span>
                   </div>
@@ -7758,11 +7754,11 @@ function RulesPage({ state, onBack }) {
       emoji: "🏆",
       items: [
         `Two teams — ${getTeamLabel(state, "grey")} vs ${getTeamLabel(state, "blue")} — compete across 3 rounds.`,
-        "Each round has 3 matches (2v2 pairs), for a total of 9 matches over the weekend.",
-        "Each match is a 2-ball best ball net match play. On each hole, each team takes the best net stableford score from their pair.",
+        "Rounds 1 and 2 have 3 matches (2v2 pairs), while Round 3 is split into 6 singles matches, for a total of 12 matches over the weekend.",
+        "Rounds 1 and 2 are 2-ball best ball net match play; Round 3 is singles net match play.",
         "The team with the higher stableford score wins the hole. If scores are equal, the hole is halved.",
         "The pair that wins the most holes wins the match, scoring 1 point for their team. A drawn match scores 0.5 points each.",
-        "The team with the most points out of 9 at the end of Sunday wins the Teams Cup.",
+        "The team with the most points out of 12 at the end of Sunday wins the Teams Cup.",
       ],
     },
     {
