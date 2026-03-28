@@ -764,7 +764,7 @@ const ROUNDS = [
       { id: "m9", blue: ["jturner"], grey: ["angus"] },
       { id: "m10", blue: ["lach"], grey: ["jkelly"] },
       { id: "m11", blue: ["tom"], grey: ["alex"] },
-      { id: "m12", blue: ["callum"], grey: ["chris"] },
+      { id: "m12", blue: ["callum"], grey: ["alex"] },
     ],
   },
 ];
