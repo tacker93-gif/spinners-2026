@@ -743,6 +743,7 @@ const ROUNDS = [
     day: "Saturday 28th March",
     courseId: "pk_south",
     courseName: "PK South Course",
+    startHole: 11,
     teeTimes: ["12:44pm", "12:52pm", "1:00pm"],
     matches: [
       { id: "m4", blue: ["tom", "lach"], grey: ["angus", "alex"] },
@@ -2358,12 +2359,26 @@ function isRoundFullySubmitted(state, roundId) {
   return PLAYERS.every((p) => !!state?.submitted?.[roundId]?.[p.id]);
 }
 
+function getRoundStartHoleIdx(roundId) {
+  const round = ROUNDS.find((r) => r.id === roundId);
+  const startHole = Number(round?.startHole);
+  if (!Number.isFinite(startHole) || startHole < 1 || startHole > 18) return 0;
+  return startHole - 1;
+}
+
+function getPreviousPlayableHoleIdx(roundId, holeIdx) {
+  const startHoleIdx = getRoundStartHoleIdx(roundId);
+  if (holeIdx === startHoleIdx) return null;
+  return (holeIdx + 17) % 18;
+}
+
 function canEnterHoleScores(state, roundId, playerId, holeIdx) {
-  if (holeIdx <= 0) return true;
+  const prevHoleIdx = getPreviousPlayableHoleIdx(roundId, holeIdx);
+  if (prevHoleIdx == null) return true;
   const partnerId = getPartner(playerId, roundId);
-  const prevPlayerScore = state.scores?.[roundId]?.[playerId]?.[holeIdx - 1] || 0;
+  const prevPlayerScore = state.scores?.[roundId]?.[playerId]?.[prevHoleIdx] || 0;
   const prevPartnerScore = partnerId
-    ? state.scores?.[roundId]?.[partnerId]?.[holeIdx - 1] || 0
+    ? state.scores?.[roundId]?.[partnerId]?.[prevHoleIdx] || 0
     : 1;
   return holeFilled(prevPlayerScore) && holeFilled(prevPartnerScore);
 }
@@ -5858,6 +5873,7 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
         {course.holes.map((h, i) => {
           const holeUnlocked =
             isAdmin || canEnterHoleScores(state, roundId, playerId, i);
+          const prevPlayableHoleIdx = getPreviousPlayableHoleIdx(roundId, i);
           const val = scores[i] || 0;
           const isPU = isPickup(val);
           const strk = hStrokes(dH, h);
@@ -6496,7 +6512,11 @@ function ScoreEntry({ state, upd, roundId, playerId, isAdmin, cur, onBack }) {
                       fontWeight: 600,
                     }}
                   >
-                    Locked until both scores are entered for hole {h.n - 1}.
+                    Locked until both scores are entered for hole{" "}
+                    {prevPlayableHoleIdx == null
+                      ? h.n
+                      : course.holes[prevPlayableHoleIdx]?.n || h.n}
+                    .
                   </div>
                 )}
               </div>
