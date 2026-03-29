@@ -6974,45 +6974,97 @@ function LeaderView({ state, catId, live, isAdmin, onBack, onOpenMatch }) {
       );
     }
     const pairs = [];
-    round.matches.forEach((match) => {
-      [match.blue, match.grey].forEach((team) => {
-        const [a, b] = team;
-        const sA = state.scores?.[round.id]?.[a] || [];
-        const sB = state.scores?.[round.id]?.[b] || [];
-        const hA = courseHcp(
-          state.handicaps?.[a],
-          course,
-          getTeeKey(state, course.id),
+    const shouldRebuildDay3Pairs =
+      catId === "2b3" && round.matches.every((m) => m.blue.length === 1 && m.grey.length === 1);
+
+    if (shouldRebuildDay3Pairs) {
+      for (let i = 0; i < round.matches.length; i += 2) {
+        const firstMatch = round.matches[i];
+        const secondMatch = round.matches[i + 1];
+        if (!secondMatch) continue;
+
+        [[firstMatch.blue, secondMatch.blue], [firstMatch.grey, secondMatch.grey]].forEach(
+          ([firstTeam, secondTeam]) => {
+            const a = firstTeam[0];
+            const b = secondTeam[0];
+            const sA = state.scores?.[round.id]?.[a] || [];
+            const sB = state.scores?.[round.id]?.[b] || [];
+            const hA = courseHcp(
+              state.handicaps?.[a],
+              course,
+              getTeeKey(state, course.id),
+            );
+            const hB = courseHcp(
+              state.handicaps?.[b],
+              course,
+              getTeeKey(state, course.id),
+            );
+            let pts = 0,
+              holes = 0;
+            course.holes.forEach((h, hi) => {
+              const pA = sPts(sA[hi] || 0, h.par, hStrokes(hA, h));
+              const pB = sPts(sB[hi] || 0, h.par, hStrokes(hB, h));
+              pts += Math.max(pA, pB);
+              if (holeFilled(sA[hi] || 0) || holeFilled(sB[hi] || 0)) holes++;
+            });
+            pairs.push({
+              id: `${a}_${b}`,
+              topName: getP(a)?.short,
+              bottomName: getP(b)?.short,
+              team: getP(a)?.team,
+              score: pts,
+              holes,
+              totalHoles: 18,
+              roundId: round.id,
+              matchId: null,
+              chCount:
+                getChulliganCount(state, round.id, a) +
+                getChulliganCount(state, round.id, b),
+            });
+          },
         );
-        const hB = courseHcp(
-          state.handicaps?.[b],
-          course,
-          getTeeKey(state, course.id),
-        );
-        let pts = 0,
-          holes = 0;
-        course.holes.forEach((h, i) => {
-          const pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
-          const pB = sPts(sB[i] || 0, h.par, hStrokes(hB, h));
-          pts += Math.max(pA, pB);
-          if (holeFilled(sA[i] || 0) || holeFilled(sB[i] || 0)) holes++;
-        });
-        pairs.push({
-          id: `${a}_${b}`,
-          topName: getP(a)?.short,
-          bottomName: getP(b)?.short,
-          team: getP(a)?.team,
-          score: pts,
-          holes,
-          totalHoles: 18,
-          roundId: round.id,
-          matchId: findMatchByTeam(round.id, [a, b])?.id,
-          chCount:
-            getChulliganCount(state, round.id, a) +
-            getChulliganCount(state, round.id, b),
+      }
+    } else {
+      round.matches.forEach((match) => {
+        [match.blue, match.grey].forEach((team) => {
+          const [a, b] = team;
+          const sA = state.scores?.[round.id]?.[a] || [];
+          const sB = state.scores?.[round.id]?.[b] || [];
+          const hA = courseHcp(
+            state.handicaps?.[a],
+            course,
+            getTeeKey(state, course.id),
+          );
+          const hB = courseHcp(
+            state.handicaps?.[b],
+            course,
+            getTeeKey(state, course.id),
+          );
+          let pts = 0,
+            holes = 0;
+          course.holes.forEach((h, i) => {
+            const pA = sPts(sA[i] || 0, h.par, hStrokes(hA, h));
+            const pB = sPts(sB[i] || 0, h.par, hStrokes(hB, h));
+            pts += Math.max(pA, pB);
+            if (holeFilled(sA[i] || 0) || holeFilled(sB[i] || 0)) holes++;
+          });
+          pairs.push({
+            id: `${a}_${b}`,
+            topName: getP(a)?.short,
+            bottomName: getP(b)?.short,
+            team: getP(a)?.team,
+            score: pts,
+            holes,
+            totalHoles: 18,
+            roundId: round.id,
+            matchId: findMatchByTeam(round.id, [a, b])?.id,
+            chCount:
+              getChulliganCount(state, round.id, a) +
+              getChulliganCount(state, round.id, b),
+          });
         });
       });
-    });
+    }
     rankings = pairs.sort((a, b) => b.score - a.score);
   }
   const titles = {
