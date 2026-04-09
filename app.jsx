@@ -4563,7 +4563,7 @@ function MatchView({ state, upd, isAdmin, matchId, onBack }) {
                 bestGDisplay = Math.max(...gDisplayPts);
               const shownBlueTeamPts = blueHas ? bestBDisplay : null;
               const shownGreyTeamPts = greyHas ? bestGDisplay : null;
-              // Match outcome must be based on match-play stableford values
+              // Match outcome is based on match-play stableford values
               // (after match handicap adjustment / forced-player rule), while the
               // team points columns show the visible per-player stableford totals.
               const blueBeatsGrey = bestBMatch > bestGMatch;
